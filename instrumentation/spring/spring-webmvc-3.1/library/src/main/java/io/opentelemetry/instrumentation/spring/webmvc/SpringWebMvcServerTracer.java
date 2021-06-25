@@ -9,7 +9,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.propagation.TextMapGetter;
 import io.opentelemetry.instrumentation.api.tracer.HttpServerTracer;
-import io.opentelemetry.instrumentation.servlet.HttpServletRequestGetter;
+import io.opentelemetry.instrumentation.servlet.javax.JavaxHttpServletRequestGetter;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -27,13 +27,13 @@ class SpringWebMvcServerTracer
   }
 
   @Override
-  protected String peerHostIP(HttpServletRequest request) {
+  protected String peerHostIp(HttpServletRequest request) {
     return request.getRemoteAddr();
   }
 
   @Override
   protected TextMapGetter<HttpServletRequest> getGetter() {
-    return HttpServletRequestGetter.GETTER;
+    return JavaxHttpServletRequestGetter.GETTER;
   }
 
   @Override

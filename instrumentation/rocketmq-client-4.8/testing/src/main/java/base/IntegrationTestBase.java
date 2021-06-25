@@ -5,6 +5,7 @@
 
 package base;
 
+import io.opentelemetry.instrumentation.test.utils.PortUtils;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -12,7 +13,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.rocketmq.broker.BrokerController;
 import org.apache.rocketmq.common.BrokerConfig;
@@ -26,24 +26,17 @@ import org.apache.rocketmq.store.config.MessageStoreConfig;
 import org.apache.rocketmq.test.util.MQAdmin;
 import org.junit.Assert;
 
-public class IntegrationTestBase {
+public final class IntegrationTestBase {
   public static final InternalLogger logger =
       InternalLoggerFactory.getLogger(IntegrationTestBase.class);
 
-  protected static final String BROKER_NAME_PREFIX = "TestBrokerName_";
-  protected static final AtomicInteger BROKER_INDEX = new AtomicInteger(0);
-  protected static final List<File> TMPE_FILES = new ArrayList<>();
-  protected static final List<BrokerController> BROKER_CONTROLLERS = new ArrayList<>();
-  protected static final List<NamesrvController> NAMESRV_CONTROLLERS = new ArrayList<>();
-  protected static final int COMMIT_LOG_SIZE = 1024 * 1024 * 100;
-  protected static final int INDEX_NUM = 1000;
-  private static final AtomicInteger port = new AtomicInteger(40000);
-
-  public static synchronized int nextPort() {
-    return port.addAndGet(random.nextInt(10) + 10);
-  }
-
-  protected static final Random random = new Random();
+  static final String BROKER_NAME_PREFIX = "TestBrokerName_";
+  static final AtomicInteger BROKER_INDEX = new AtomicInteger(0);
+  static final List<File> TMPE_FILES = new ArrayList<>();
+  static final List<BrokerController> BROKER_CONTROLLERS = new ArrayList<>();
+  static final List<NamesrvController> NAMESRV_CONTROLLERS = new ArrayList<>();
+  static final int COMMIT_LOG_SIZE = 1024 * 1024 * 100;
+  static final int INDEX_NUM = 1000;
 
   private static String createTempDir() {
     String path = null;
@@ -52,7 +45,7 @@ public class IntegrationTestBase {
       TMPE_FILES.add(file);
       path = file.getCanonicalPath();
     } catch (IOException e) {
-      e.printStackTrace();
+      logger.warn("Error creating temporary directory.", e);
     }
     return path;
   }
@@ -77,7 +70,9 @@ public class IntegrationTestBase {
     namesrvConfig.setKvConfigPath(kvConfigPath.toString());
     namesrvConfig.setConfigStorePath(namesrvPath.toString());
 
-    nameServerNettyServerConfig.setListenPort(nextPort());
+    // find 3 consecutive open ports and use the last one of them
+    // rocketmq will also bind to given port - 2
+    nameServerNettyServerConfig.setListenPort(PortUtils.findOpenPorts(3) + 2);
     NamesrvController namesrvController =
         new NamesrvController(namesrvConfig, nameServerNettyServerConfig);
     try {
@@ -113,8 +108,8 @@ public class IntegrationTestBase {
       MessageStoreConfig storeConfig, BrokerConfig brokerConfig) {
     NettyServerConfig nettyServerConfig = new NettyServerConfig();
     NettyClientConfig nettyClientConfig = new NettyClientConfig();
-    nettyServerConfig.setListenPort(nextPort());
-    storeConfig.setHaListenPort(nextPort());
+    nettyServerConfig.setListenPort(PortUtils.findOpenPort());
+    storeConfig.setHaListenPort(PortUtils.findOpenPort());
     BrokerController brokerController =
         new BrokerController(brokerConfig, nettyServerConfig, nettyClientConfig, storeConfig);
     try {
@@ -125,8 +120,8 @@ public class IntegrationTestBase {
           brokerController.getBrokerAddr());
       brokerController.start();
     } catch (Throwable t) {
-      logger.error("Broker start failed, will exit", t);
-      System.exit(1);
+      logger.error("Broker start failed", t);
+      throw new IllegalStateException("Broker start failed", t);
     }
     BROKER_CONTROLLERS.add(brokerController);
     return brokerController;
@@ -135,4 +130,6 @@ public class IntegrationTestBase {
   public static void initTopic(String topic, String nsAddr, String clusterName) {
     MQAdmin.createTopic(nsAddr, clusterName, topic, 20);
   }
+
+  private IntegrationTestBase() {}
 }

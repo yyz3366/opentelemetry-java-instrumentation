@@ -10,6 +10,7 @@ import static io.opentelemetry.api.trace.SpanKind.SERVER;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
+import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.propagation.TextMapGetter;
 import io.opentelemetry.semconv.trace.attributes.SemanticAttributes;
@@ -38,16 +39,16 @@ public abstract class HttpServerTracer<REQUEST, RESPONSE, CONNECTION, STORAGE> e
 
   protected static final String USER_AGENT = "User-Agent";
 
-  public HttpServerTracer() {
+  protected HttpServerTracer() {
     super();
   }
 
-  public HttpServerTracer(OpenTelemetry openTelemetry) {
+  protected HttpServerTracer(OpenTelemetry openTelemetry) {
     super(openTelemetry);
   }
 
   public Context startSpan(REQUEST request, CONNECTION connection, STORAGE storage, Method origin) {
-    String spanName = spanNameForMethod(origin);
+    String spanName = SpanNames.fromMethod(origin);
     return startSpan(request, connection, storage, spanName);
   }
 
@@ -155,7 +156,7 @@ public abstract class HttpServerTracer<REQUEST, RESPONSE, CONNECTION, STORAGE> e
 
   protected void onConnection(SpanBuilder spanBuilder, CONNECTION connection) {
     // TODO: use NetPeerAttributes here
-    spanBuilder.setAttribute(SemanticAttributes.NET_PEER_IP, peerHostIP(connection));
+    spanBuilder.setAttribute(SemanticAttributes.NET_PEER_IP, peerHostIp(connection));
     Integer port = peerPort(connection);
     // Negative or Zero ports might represent an unset/null value for an int type.  Skip setting.
     if (port != null && port > 0) {
@@ -198,10 +199,10 @@ public abstract class HttpServerTracer<REQUEST, RESPONSE, CONNECTION, STORAGE> e
       }
       spanBuilder.setAttribute(SemanticAttributes.HTTP_FLAVOR, flavor);
     }
-    spanBuilder.setAttribute(SemanticAttributes.HTTP_CLIENT_IP, clientIP(connection, request));
+    spanBuilder.setAttribute(SemanticAttributes.HTTP_CLIENT_IP, clientIp(connection, request));
   }
 
-  private String clientIP(CONNECTION connection, REQUEST request) {
+  private String clientIp(CONNECTION connection, REQUEST request) {
     // try Forwarded
     String forwarded = requestHeader(request, "Forwarded");
     if (forwarded != null) {
@@ -225,7 +226,7 @@ public abstract class HttpServerTracer<REQUEST, RESPONSE, CONNECTION, STORAGE> e
     }
 
     // fallback to peer IP if there are no proxy headers
-    return peerHostIP(connection);
+    return peerHostIp(connection);
   }
 
   // VisibleForTesting
@@ -252,16 +253,17 @@ public abstract class HttpServerTracer<REQUEST, RESPONSE, CONNECTION, STORAGE> e
 
   private static void setStatus(Span span, int status) {
     span.setAttribute(SemanticAttributes.HTTP_STATUS_CODE, (long) status);
-    // TODO status_message
-    // See https://github.com/open-telemetry/opentelemetry-specification/issues/950
-    span.setStatus(HttpStatusConverter.statusFromHttpStatus(status));
+    StatusCode statusCode = HttpStatusConverter.statusFromHttpStatus(status);
+    if (statusCode != StatusCode.UNSET) {
+      span.setStatus(statusCode);
+    }
   }
 
   @Nullable
   protected abstract Integer peerPort(CONNECTION connection);
 
   @Nullable
-  protected abstract String peerHostIP(CONNECTION connection);
+  protected abstract String peerHostIp(CONNECTION connection);
 
   protected abstract String flavor(CONNECTION connection, REQUEST request);
 

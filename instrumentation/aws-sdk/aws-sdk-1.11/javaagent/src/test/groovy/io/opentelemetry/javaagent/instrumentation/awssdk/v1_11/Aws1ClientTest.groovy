@@ -5,6 +5,9 @@
 
 package io.opentelemetry.javaagent.instrumentation.awssdk.v1_11
 
+import static io.opentelemetry.api.trace.StatusCode.ERROR
+import static io.opentelemetry.semconv.trace.attributes.SemanticAttributes.NetTransportValues.IP_TCP
+
 import com.amazonaws.AmazonWebServiceClient
 import com.amazonaws.Request
 import com.amazonaws.auth.BasicAWSCredentials
@@ -74,7 +77,7 @@ class Aws1ClientTest extends AbstractAws1ClientTest implements AgentTestTrait {
     def client = new AmazonS3Client(CREDENTIALS_PROVIDER_CHAIN)
     client.addRequestHandler(new RequestHandler2() {
       void beforeRequest(Request<?> request) {
-        throw new RuntimeException("bad handler")
+        throw new IllegalStateException("bad handler")
       }
     })
 
@@ -83,18 +86,18 @@ class Aws1ClientTest extends AbstractAws1ClientTest implements AgentTestTrait {
 
     then:
     !Span.current().getSpanContext().isValid()
-    thrown RuntimeException
+    thrown IllegalStateException
 
     assertTraces(1) {
       trace(0, 1) {
         span(0) {
           name "S3.HeadBucket"
           kind SpanKind.CLIENT
-          errored true
-          errorEvent RuntimeException, "bad handler"
+          status ERROR
+          errorEvent IllegalStateException, "bad handler"
           hasNoParent()
           attributes {
-            "${SemanticAttributes.NET_TRANSPORT.key}" "IP.TCP"
+            "${SemanticAttributes.NET_TRANSPORT.key}" IP_TCP
             "${SemanticAttributes.HTTP_URL.key}" "https://s3.amazonaws.com"
             "${SemanticAttributes.HTTP_METHOD.key}" "HEAD"
             "${SemanticAttributes.HTTP_FLAVOR.key}" "1.1"

@@ -18,15 +18,13 @@ import io.opentelemetry.context.propagation.TextMapGetter;
 import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.opentelemetry.context.propagation.TextMapSetter;
 import io.opentelemetry.instrumentation.api.InstrumentationVersion;
-import io.opentelemetry.instrumentation.api.config.Config;
-import io.opentelemetry.instrumentation.api.context.ContextPropagationDebug;
+import io.opentelemetry.instrumentation.api.internal.ContextPropagationDebug;
+import io.opentelemetry.instrumentation.api.internal.SupportabilityMetrics;
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.lang.reflect.UndeclaredThrowableException;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Base class for all instrumentation specific tracer implementations.
@@ -48,9 +46,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * are able to see those attributes in the {@code onStart()} method and can freely read/modify them.
  */
 public abstract class BaseTracer {
-  // should we make this injectable?
-  private static final SupportabilityMetrics supportability =
-      new SupportabilityMetrics(Config.get()).start();
+  private static final SupportabilityMetrics supportability = SupportabilityMetrics.instance();
 
   private final Tracer tracer;
   private final ContextPropagators propagators;
@@ -62,11 +58,11 @@ public abstract class BaseTracer {
    * @deprecated always pass an OpenTelemetry instance.
    */
   @Deprecated
-  public BaseTracer() {
+  protected BaseTracer() {
     this(GlobalOpenTelemetry.get());
   }
 
-  public BaseTracer(OpenTelemetry openTelemetry) {
+  protected BaseTracer(OpenTelemetry openTelemetry) {
     this.tracer = openTelemetry.getTracer(getInstrumentationName(), getVersion());
     this.propagators = openTelemetry.getPropagators();
   }
@@ -108,10 +104,11 @@ public abstract class BaseTracer {
     boolean suppressed = false;
     switch (proposedKind) {
       case CLIENT:
-        suppressed = inClientSpan(context);
+        suppressed = ClientSpan.exists(context);
         break;
       case SERVER:
-        suppressed = inServerSpan(context);
+      case CONSUMER:
+        suppressed = ServerSpan.exists(context) || ConsumerSpan.exists(context);
         break;
       default:
         break;
@@ -120,14 +117,6 @@ public abstract class BaseTracer {
       supportability.recordSuppressedSpan(proposedKind, getInstrumentationName());
     }
     return !suppressed;
-  }
-
-  private boolean inClientSpan(Context context) {
-    return ClientSpan.fromContextOrNull(context) != null;
-  }
-
-  private boolean inServerSpan(Context context) {
-    return ServerSpan.fromContextOrNull(context) != null;
   }
 
   /**
@@ -181,45 +170,13 @@ public abstract class BaseTracer {
   }
 
   /**
-   * This method is used to generate an acceptable span (operation) name based on a given method
-   * reference. Anonymous classes are named based on their parent.
+   * Returns a {@link Context} containing the passed {@code span} marked as the current {@link
+   * SpanKind#CONSUMER} span.
+   *
+   * @see #shouldStartSpan(Context, SpanKind)
    */
-  public static String spanNameForMethod(Method method) {
-    return spanNameForMethod(method.getDeclaringClass(), method.getName());
-  }
-
-  /**
-   * This method is used to generate an acceptable span (operation) name based on a given method
-   * reference. Anonymous classes are named based on their parent.
-   */
-  public static String spanNameForMethod(Class<?> clazz, @Nullable Method method) {
-    return spanNameForMethod(clazz, method == null ? "<unknown>" : method.getName());
-  }
-
-  /**
-   * This method is used to generate an acceptable span (operation) name based on a given method
-   * reference. Anonymous classes are named based on their parent.
-   */
-  public static String spanNameForMethod(Class<?> cl, String methodName) {
-    return spanNameForClass(cl) + "." + methodName;
-  }
-
-  /**
-   * This method is used to generate an acceptable span (operation) name based on a given class
-   * reference. Anonymous classes are named based on their parent.
-   */
-  public static String spanNameForClass(Class<?> clazz) {
-    if (!clazz.isAnonymousClass()) {
-      return clazz.getSimpleName();
-    }
-    String className = clazz.getName();
-    if (clazz.getPackage() != null) {
-      String pkgName = clazz.getPackage().getName();
-      if (!pkgName.isEmpty()) {
-        className = className.substring(pkgName.length() + 1);
-      }
-    }
-    return className;
+  protected final Context withConsumerSpan(Context parentContext, Span span) {
+    return ConsumerSpan.with(parentContext.with(span), span);
   }
 
   /** Ends the execution of a span stored in the passed {@code context}. */
@@ -300,10 +257,19 @@ public abstract class BaseTracer {
   public <C> Context extract(C carrier, TextMapGetter<C> getter) {
     ContextPropagationDebug.debugContextLeakIfEnabled();
 
-    // Using Context.root() here may be quite unexpected, but the reason is simple.
-    // We want either span context extracted from the carrier or invalid one.
-    // We DO NOT want any span context potentially lingering in the current context.
-    return propagators.getTextMapPropagator().extract(Context.root(), carrier, getter);
+    Context parent = Context.current();
+    if (Span.fromContextOrNull(parent) != null) {
+      // A span has leaked from another thread.
+      // We want either span context extracted from the carrier or invalid one.
+      // We DO NOT want any span context potentially lingering in the current context.
+      // We reset to the root context, which may not always be appropriate (e.g., a framework added
+      // an item to the context before we create a span) but it is safer than removing all the
+      // possible spans that instrumentation may have added and such frameworks as of now do not
+      // have leaks.
+      parent = Context.root();
+    }
+
+    return propagators.getTextMapPropagator().extract(parent, carrier, getter);
   }
 
   /**

@@ -6,7 +6,7 @@
 package io.opentelemetry.javaagent.tooling;
 
 import com.google.auto.service.AutoService;
-import io.opentelemetry.api.metrics.GlobalMetricsProvider;
+import io.opentelemetry.api.metrics.GlobalMeterProvider;
 import io.opentelemetry.exporter.logging.LoggingSpanExporter;
 import io.opentelemetry.instrumentation.api.config.Config;
 import io.opentelemetry.javaagent.spi.exporter.MetricExporterFactory;
@@ -76,7 +76,7 @@ public class AgentTracerProviderConfigurer implements SdkTracerProviderConfigure
     try {
       url = new File(exporterJar).toURI().toURL();
     } catch (MalformedURLException e) {
-      log.warn("Filename could not be parsed: " + exporterJar + ". Exporter is not installed");
+      log.warn("Filename could not be parsed: {}. Exporter is not installed", exporterJar);
       log.warn("No valid exporter found. Tracing will run but spans are dropped");
       return;
     }
@@ -120,7 +120,7 @@ public class AgentTracerProviderConfigurer implements SdkTracerProviderConfigure
     SpanExporter spanExporter = spanExporterFactory.fromConfig(config.asJavaProperties());
     SpanProcessor spanProcessor = BatchSpanProcessor.builder(spanExporter).build();
     builder.addSpanProcessor(spanProcessor);
-    log.info("Installed span exporter: " + spanExporter.getClass().getName());
+    log.info("Installed span exporter: {}", spanExporter.getClass().getName());
   }
 
   private static void installMetricExporter(
@@ -128,8 +128,8 @@ public class AgentTracerProviderConfigurer implements SdkTracerProviderConfigure
     MetricExporter metricExporter = metricExporterFactory.fromConfig(config.asJavaProperties());
     IntervalMetricReader.builder()
         .setMetricExporter(metricExporter)
-        .setMetricProducers(Collections.singleton((SdkMeterProvider) GlobalMetricsProvider.get()))
-        .build();
-    log.info("Installed metric exporter: " + metricExporter.getClass().getName());
+        .setMetricProducers(Collections.singleton((SdkMeterProvider) GlobalMeterProvider.get()))
+        .buildAndStart();
+    log.info("Installed metric exporter: {}", metricExporter.getClass().getName());
   }
 }

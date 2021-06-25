@@ -33,30 +33,24 @@ public class TraceAspectAutoConfigurationTest {
   @DisplayName("when aspects are ENABLED should initialize WithSpanAspect bean")
   void aspectsEnabled() {
     this.contextRunner
-        .withPropertyValues("opentelemetry.trace.aspects.enabled=true")
+        .withPropertyValues("otel.springboot.aspects.enabled=true")
         .run(
-            (context) -> {
-              assertThat(context.getBean("withSpanAspect", WithSpanAspect.class)).isNotNull();
-            });
+            context ->
+                assertThat(context.getBean("withSpanAspect", WithSpanAspect.class)).isNotNull());
   }
 
   @Test
   @DisplayName("when aspects are DISABLED should NOT initialize WithSpanAspect bean")
   void disabledProperty() {
     this.contextRunner
-        .withPropertyValues("opentelemetry.trace.aspects.enabled=false")
-        .run(
-            (context) -> {
-              assertThat(context.containsBean("withSpanAspect")).isFalse();
-            });
+        .withPropertyValues("otel.springboot.aspects.enabled=false")
+        .run(context -> assertThat(context.containsBean("withSpanAspect")).isFalse());
   }
 
   @Test
   @DisplayName("when aspects enabled property is MISSING should initialize WithSpanAspect bean")
   void noProperty() {
     this.contextRunner.run(
-        (context) -> {
-          assertThat(context.getBean("withSpanAspect", WithSpanAspect.class)).isNotNull();
-        });
+        context -> assertThat(context.getBean("withSpanAspect", WithSpanAspect.class)).isNotNull());
   }
 }

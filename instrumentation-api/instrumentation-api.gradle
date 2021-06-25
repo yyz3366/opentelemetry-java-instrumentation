@@ -1,36 +1,52 @@
 plugins {
   id 'org.xbib.gradle.plugin.jflex' version '1.5.0'
+  id("otel.java-conventions")
+  id("otel.jacoco-conventions")
+  id("otel.publish-conventions")
 }
 
 group = 'io.opentelemetry.instrumentation'
 
-apply from: "$rootDir/gradle/java.gradle"
-apply from: "$rootDir/gradle/publish.gradle"
-
 def jflexTargetDir = file"${project.buildDir}/generated/jflex/sql"
-def jflexTask = tasks.create("sqlSanitizerJflex", org.xbib.gradle.plugin.JFlexTask) {
+
+def sqlSanitizerJflex = tasks.register("sqlSanitizerJflex", org.xbib.gradle.plugin.JFlexTask) {
   group = 'jflex'
   description = 'Generate SqlSanitizer'
   source = [file("${project.projectDir}/src/main/jflex/SqlSanitizer.flex")]
   target = jflexTargetDir
 }
-tasks.compileJava.dependsOn(jflexTask)
-sourceSets.main.java.srcDirs += jflexTargetDir
+
+tasks.named("compileJava").configure {
+  dependsOn(sqlSanitizerJflex)
+}
+
+tasks.named("javadoc").configure {
+  dependsOn(sqlSanitizerJflex)
+}
+
+tasks.named("sourcesJar").configure {
+  dependsOn(sqlSanitizerJflex)
+}
+
+sourceSets.main.java.srcDir(jflexTargetDir)
 
 dependencies {
   api project(":instrumentation-api-caching")
 
-  api deps.opentelemetryApi
-  api deps.opentelemetryContext
-  api deps.opentelemetrySemConv
+  api "io.opentelemetry:opentelemetry-api"
+  api "io.opentelemetry:opentelemetry-semconv"
 
-  implementation deps.slf4j
+  implementation "io.opentelemetry:opentelemetry-api-metrics"
+  implementation "org.slf4j:slf4j-api"
 
-  compileOnly deps.autoValueAnnotations
-  annotationProcessor deps.autoValue
+  compileOnly "com.google.auto.value:auto-value-annotations"
+  annotationProcessor "com.google.auto.value:auto-value"
 
   testImplementation project(':testing-common')
-  testImplementation deps.mockito
-  testImplementation deps.assertj
-  testImplementation deps.awaitility
+  testImplementation "org.mockito:mockito-core"
+  testImplementation "org.mockito:mockito-junit-jupiter"
+  testImplementation "org.assertj:assertj-core"
+  testImplementation "org.awaitility:awaitility"
+  testImplementation "io.opentelemetry:opentelemetry-sdk-metrics"
+  testImplementation "io.opentelemetry:opentelemetry-sdk-testing"
 }

@@ -20,20 +20,20 @@ import org.apache.rocketmq.test.util.RandomUtil;
 public final class BaseConf {
   public static final String nsAddr;
   public static final String broker1Addr;
-  protected static String broker1Name;
-  protected static final String clusterName;
-  protected static final NamesrvController namesrvController;
-  protected static final BrokerController brokerController1;
+  static final String broker1Name;
+  static final String clusterName;
+  static final NamesrvController namesrvController;
+  static final BrokerController brokerController;
 
   static {
     System.setProperty(
         RemotingCommand.REMOTING_VERSION_KEY, Integer.toString(MQVersion.CURRENT_VERSION));
     namesrvController = IntegrationTestBase.createAndStartNamesrv();
     nsAddr = "localhost:" + namesrvController.getNettyServerConfig().getListenPort();
-    brokerController1 = IntegrationTestBase.createAndStartBroker(nsAddr);
-    clusterName = brokerController1.getBrokerConfig().getBrokerClusterName();
-    broker1Name = brokerController1.getBrokerConfig().getBrokerName();
-    broker1Addr = "localhost:" + brokerController1.getNettyServerConfig().getListenPort();
+    brokerController = IntegrationTestBase.createAndStartBroker(nsAddr);
+    clusterName = brokerController.getBrokerConfig().getBrokerClusterName();
+    broker1Name = brokerController.getBrokerConfig().getBrokerName();
+    broker1Addr = "localhost:" + brokerController.getNettyServerConfig().getListenPort();
   }
 
   private BaseConf() {}
@@ -64,7 +64,8 @@ public final class BaseConf {
     return producer;
   }
 
-  private static void deleteTempDir() {
+  public static void deleteTempDir() {
+    namesrvController.shutdown();
     IntegrationTestBase.deleteTempDir();
   }
 }

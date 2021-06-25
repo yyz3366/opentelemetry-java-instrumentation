@@ -1,4 +1,6 @@
-apply from: "$rootDir/gradle/instrumentation-library.gradle"
+plugins {
+  id("otel.library-instrumentation")
+}
 
 dependencies {
   compileOnly "org.springframework:spring-web:3.1.0.RELEASE"
@@ -6,7 +8,8 @@ dependencies {
   testImplementation "org.springframework:spring-web:3.1.0.RELEASE"
 
   testImplementation project(':testing-common')
-  testImplementation deps.assertj
-  testImplementation deps.mockito
-  testImplementation deps.opentelemetrySdkTesting
+  testImplementation "org.assertj:assertj-core"
+  testImplementation "org.mockito:mockito-core"
+  testImplementation "org.mockito:mockito-junit-jupiter"
+  testImplementation "io.opentelemetry:opentelemetry-sdk-testing"
 }

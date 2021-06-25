@@ -5,10 +5,13 @@
 
 package io.opentelemetry.javaagent.instrumentation.grails;
 
-import io.opentelemetry.api.trace.Span;
+import static io.opentelemetry.instrumentation.api.servlet.ServerSpanNaming.Source.CONTROLLER;
+
 import io.opentelemetry.context.Context;
+import io.opentelemetry.instrumentation.api.servlet.ServerSpanNaming;
 import io.opentelemetry.instrumentation.api.servlet.ServletContextPath;
 import io.opentelemetry.instrumentation.api.tracer.BaseTracer;
+import io.opentelemetry.instrumentation.api.tracer.SpanNames;
 import org.grails.web.mapping.mvc.GrailsControllerUrlMappingInfo;
 
 public class GrailsTracer extends BaseTracer {
@@ -20,17 +23,20 @@ public class GrailsTracer extends BaseTracer {
   }
 
   public Context startSpan(Object controller, String action) {
-    return startSpan(spanNameForClass(controller.getClass()) + "." + action);
+    return startSpan(SpanNames.fromMethod(controller.getClass(), action));
   }
 
-  public void nameServerSpan(
-      Context context, Span serverSpan, GrailsControllerUrlMappingInfo info) {
+  public void updateServerSpanName(Context context, GrailsControllerUrlMappingInfo info) {
+    ServerSpanNaming.updateServerSpanName(
+        context, CONTROLLER, () -> getServerSpanName(context, info));
+  }
+
+  private static String getServerSpanName(Context context, GrailsControllerUrlMappingInfo info) {
     String action =
         info.getActionName() != null
             ? info.getActionName()
             : info.getControllerClass().getDefaultAction();
-    serverSpan.updateName(
-        ServletContextPath.prepend(context, "/" + info.getControllerName() + "/" + action));
+    return ServletContextPath.prepend(context, "/" + info.getControllerName() + "/" + action);
   }
 
   @Override

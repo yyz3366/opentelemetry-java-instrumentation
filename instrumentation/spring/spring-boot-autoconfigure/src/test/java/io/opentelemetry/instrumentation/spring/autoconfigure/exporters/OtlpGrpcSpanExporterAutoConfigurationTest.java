@@ -32,12 +32,11 @@ class OtlpGrpcSpanExporterAutoConfigurationTest {
   @DisplayName("when exporters are ENABLED should initialize OtlpGrpcSpanExporter bean")
   void exportersEnabled() {
     this.contextRunner
-        .withPropertyValues("opentelemetry.trace.exporters.otlp.enabled=true")
+        .withPropertyValues("otel.exporter.otlp.enabled=true")
         .run(
-            (context) -> {
-              assertThat(context.getBean("otelOtlpGrpcSpanExporter", OtlpGrpcSpanExporter.class))
-                  .isNotNull();
-            });
+            context ->
+                assertThat(context.getBean("otelOtlpGrpcSpanExporter", OtlpGrpcSpanExporter.class))
+                    .isNotNull());
   }
 
   @AfterEach
@@ -47,20 +46,20 @@ class OtlpGrpcSpanExporterAutoConfigurationTest {
 
   @Test
   @DisplayName(
-      "when opentelemetry.trace.exporter.otlp properties are set should initialize OtlpGrpcSpanExporterProperties")
+      "when otel.exporter.otlp properties are set should initialize OtlpGrpcSpanExporterProperties")
   void handlesProperties() {
     this.contextRunner
         .withPropertyValues(
-            "opentelemetry.trace.exporter.otlp.enabled=true",
-            "opentelemetry.trace.exporter.otlp.endpoint=http://localhost:8080/test",
-            "opentelemetry.trace.exporter.otlp.spantimeout=69ms")
+            "otel.exporter.otlp.enabled=true",
+            "otel.exporter.otlp.endpoint=http://localhost:8080/test",
+            "otel.exporter.otlp.timeout=69ms")
         .run(
-            (context) -> {
+            context -> {
               OtlpGrpcSpanExporterProperties otlpSpanExporterProperties =
                   context.getBean(OtlpGrpcSpanExporterProperties.class);
               assertThat(otlpSpanExporterProperties.getEndpoint())
                   .isEqualTo("http://localhost:8080/test");
-              assertThat(otlpSpanExporterProperties.getSpanTimeout()).hasMillis(69);
+              assertThat(otlpSpanExporterProperties.getTimeout()).hasMillis(69);
             });
   }
 
@@ -68,20 +67,16 @@ class OtlpGrpcSpanExporterAutoConfigurationTest {
   @DisplayName("when exporters are DISABLED should NOT initialize OtlpGrpcSpanExporter bean")
   void disabledProperty() {
     this.contextRunner
-        .withPropertyValues("opentelemetry.trace.exporter.otlp.enabled=false")
-        .run(
-            (context) -> {
-              assertThat(context.containsBean("otelOtlpGrpcSpanExporter")).isFalse();
-            });
+        .withPropertyValues("otel.exporter.otlp.enabled=false")
+        .run(context -> assertThat(context.containsBean("otelOtlpGrpcSpanExporter")).isFalse());
   }
 
   @Test
   @DisplayName("when otlp enabled property is MISSING should initialize OtlpGrpcSpanExporter bean")
   void noProperty() {
     this.contextRunner.run(
-        (context) -> {
-          assertThat(context.getBean("otelOtlpGrpcSpanExporter", OtlpGrpcSpanExporter.class))
-              .isNotNull();
-        });
+        context ->
+            assertThat(context.getBean("otelOtlpGrpcSpanExporter", OtlpGrpcSpanExporter.class))
+                .isNotNull());
   }
 }

@@ -4,22 +4,17 @@ import nebula.plugin.release.git.opinion.Strategies
 plugins {
   id 'idea'
 
-  id "io.github.gradle-nexus.publish-plugin" version "1.0.0"
-  id "nebula.release" version "15.3.0"
+  id "io.github.gradle-nexus.publish-plugin"
+  id "nebula.release"
 
-  id 'org.gradle.test-retry' version '1.2.0' apply false
+  id 'org.gradle.test-retry' apply false
 
-  id 'org.unbroken-dome.test-sets' version '3.0.1' apply false
-  id 'com.github.ben-manes.versions' version '0.27.0'
+  id 'org.unbroken-dome.test-sets' apply false
+  id 'com.github.ben-manes.versions'
 
-  id 'com.dorongold.task-tree' version '1.5'
-
-  id "com.github.johnrengelman.shadow" version "6.1.0" apply false
-
-  id "com.diffplug.spotless" version "5.8.2"
-  id "com.github.spotbugs" version "4.6.0" apply false
-
-  id "net.ltgt.errorprone" version "1.3.0" apply false
+  id "com.diffplug.spotless"
+  id "net.ltgt.errorprone" apply false
+  id "net.ltgt.nullaway" apply false
 }
 
 release {
@@ -54,31 +49,29 @@ nexusPublishing {
 // Enable after verifying Maven Central publishing once through manual closing
 // tasks.release.finalizedBy tasks.closeAndReleaseRepository
 
-allprojects {
-  apply from: "$rootDir/gradle/dependencies.gradle"
-  apply from: "$rootDir/gradle/util.gradle"
-}
-
-repositories {
-  mavenLocal()
-  mavenCentral()
-  jcenter()
-}
-
 description = 'OpenTelemetry instrumentations for Java'
 
 allprojects {
-  apply plugin: 'idea'
+  plugins.withId('net.ltgt.nullaway') {
+    dependencies {
+      errorprone "com.uber.nullaway:nullaway"
+    }
 
-  idea {
-    module {
-      downloadJavadoc = false
-      downloadSources = false
+    nullaway {
+      annotatedPackages.addAll("io.opentelemetry", "com.linecorp.armeria,com.google.common")
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+      if (!name.toLowerCase().contains("test")) {
+        options.errorprone {
+          nullaway {
+            severity = net.ltgt.gradle.errorprone.CheckSeverity.ERROR
+          }
+        }
+      }
     }
   }
 }
-
-apply plugin: 'com.diffplug.spotless'
 
 spotless {
   // this formatting is applied at the root level, as some of these files are not in a submodules
@@ -90,6 +83,3 @@ spotless {
     endWithNewline()
   }
 }
-
-task formatCode(dependsOn: ['spotlessApply'])
-check.dependsOn 'spotlessCheck'

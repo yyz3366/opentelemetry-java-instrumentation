@@ -107,7 +107,7 @@ WHITESPACE        = [ \t\r\n]+
     }
 
     SqlStatementInfo getResult(String fullStatement) {
-      return SqlStatementInfo.create(fullStatement, getClass().getSimpleName().toUpperCase(), mainTable);
+      return SqlStatementInfo.create(fullStatement, getClass().getSimpleName().toUpperCase(java.util.Locale.ROOT), mainTable);
     }
   }
 
@@ -295,6 +295,11 @@ WHITESPACE        = [ \t\r\n]+
 
   "FROM" {
           if (!insideComment && !extractionDone) {
+            if (operation == NoOp.INSTANCE) {
+              // hql/jpql queries may skip SELECT and start with FROM clause
+              // treat such queries as SELECT queries
+              setOperation(new Select());
+            }
             extractionDone = operation.handleFrom();
           }
           appendCurrentFragment();

@@ -9,6 +9,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.instrumentation.api.tracer.BaseTracer;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import play.api.mvc.Request;
 import play.api.routing.HandlerDef;
 import play.libs.typedmap.TypedKey;
@@ -22,7 +23,7 @@ public class PlayTracer extends BaseTracer {
     return TRACER;
   }
 
-  private static final Method typedKeyGetUnderlying;
+  @Nullable private static final Method typedKeyGetUnderlying;
 
   static {
     Method typedKeyGetUnderlyingCheck = null;
@@ -30,12 +31,14 @@ public class PlayTracer extends BaseTracer {
       // This method was added in Play 2.6.8
       typedKeyGetUnderlyingCheck = TypedKey.class.getMethod("asScala");
     } catch (NoSuchMethodException ignored) {
+      // Ignore
     }
     // Fallback
     if (typedKeyGetUnderlyingCheck == null) {
       try {
         typedKeyGetUnderlyingCheck = TypedKey.class.getMethod("underlying");
       } catch (NoSuchMethodException ignored) {
+        // Ignore
       }
     }
     typedKeyGetUnderlying = typedKeyGetUnderlyingCheck;
@@ -55,6 +58,7 @@ public class PlayTracer extends BaseTracer {
                       (play.api.libs.typedmap.TypedKey<HandlerDef>)
                           typedKeyGetUnderlying.invoke(Router.Attrs.HANDLER_DEF));
         } catch (IllegalAccessException | InvocationTargetException ignored) {
+          // Ignore
         }
       }
       if (defOption != null && !defOption.isEmpty()) {

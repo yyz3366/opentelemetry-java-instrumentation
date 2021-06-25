@@ -1,11 +1,13 @@
-apply from: "$rootDir/gradle/java.gradle"
+plugins {
+  id("otel.java-conventions")
+}
 
 dependencies {
   api project(':testing-common')
-  api group: 'org.apache.rocketmq', name: 'rocketmq-test', version: '4.8.0'
+  implementation "org.apache.rocketmq:rocketmq-test:4.8.0"
 
-  implementation deps.guava
-  implementation deps.groovy
-  implementation deps.opentelemetryApi
-  implementation deps.spock
+  implementation "com.google.guava:guava"
+  implementation "org.codehaus.groovy:groovy-all"
+  implementation "io.opentelemetry:opentelemetry-api"
+  implementation "org.spockframework:spock-core"
 }

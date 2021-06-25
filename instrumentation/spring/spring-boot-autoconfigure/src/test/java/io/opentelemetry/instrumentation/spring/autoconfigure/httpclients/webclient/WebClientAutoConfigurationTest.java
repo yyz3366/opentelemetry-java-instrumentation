@@ -33,14 +33,13 @@ class WebClientAutoConfigurationTest {
   @DisplayName("when httpclients are ENABLED should initialize WebClientBeanPostProcessor bean")
   void httpClientsEnabled() {
     this.contextRunner
-        .withPropertyValues("opentelemetry.trace.httpclients.enabled=true")
+        .withPropertyValues("otel.springboot.httpclients.enabled=true")
         .run(
-            (context) -> {
-              assertThat(
-                      context.getBean(
-                          "otelWebClientBeanPostProcessor", WebClientBeanPostProcessor.class))
-                  .isNotNull();
-            });
+            context ->
+                assertThat(
+                        context.getBean(
+                            "otelWebClientBeanPostProcessor", WebClientBeanPostProcessor.class))
+                    .isNotNull());
   }
 
   @Test
@@ -48,11 +47,10 @@ class WebClientAutoConfigurationTest {
       "when httpclients are DISABLED should NOT initialize WebClientBeanPostProcessor bean")
   void disabledProperty() {
     this.contextRunner
-        .withPropertyValues("opentelemetry.trace.httpclients.enabled=false")
+        .withPropertyValues("otel.springboot.httpclients.enabled=false")
         .run(
-            (context) -> {
-              assertThat(context.containsBean("otelWebClientBeanPostProcessor")).isFalse();
-            });
+            context ->
+                assertThat(context.containsBean("otelWebClientBeanPostProcessor")).isFalse());
   }
 
   @Test
@@ -60,11 +58,10 @@ class WebClientAutoConfigurationTest {
       "when httpclients enabled property is MISSING should initialize WebClientBeanPostProcessor bean")
   void noProperty() {
     this.contextRunner.run(
-        (context) -> {
-          assertThat(
-                  context.getBean(
-                      "otelWebClientBeanPostProcessor", WebClientBeanPostProcessor.class))
-              .isNotNull();
-        });
+        context ->
+            assertThat(
+                    context.getBean(
+                        "otelWebClientBeanPostProcessor", WebClientBeanPostProcessor.class))
+                .isNotNull());
   }
 }

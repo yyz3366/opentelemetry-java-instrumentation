@@ -13,7 +13,7 @@ configurations {
 dependencies {
   compileOnly("io.opentelemetry:opentelemetry-sdk:${versions.opentelemetry}")
   compileOnly("io.opentelemetry.javaagent:opentelemetry-javaagent-api:${versions.opentelemetryJavaagentAlpha}")
-  compileOnly("io.opentelemetry.javaagent:opentelemetry-javaagent-tooling:${versions.opentelemetryJavaagentAlpha}")
+  compileOnly("io.opentelemetry.javaagent:opentelemetry-javaagent-extension-api:${versions.opentelemetryJavaagentAlpha}")
 
   compileOnly deps.bytebuddy
   compileOnly deps.bytebuddyagent
@@ -38,6 +38,8 @@ shadowJar {
 }
 
 tasks.withType(Test).configureEach {
+  inputs.file(shadowJar.archiveFile)
+
   jvmArgs "-Dotel.javaagent.debug=true"
   jvmArgs "-javaagent:${configurations.testAgent.files.first().absolutePath}"
   jvmArgs "-Dotel.javaagent.experimental.initializer.jar=${shadowJar.archiveFile.get().asFile.absolutePath}"

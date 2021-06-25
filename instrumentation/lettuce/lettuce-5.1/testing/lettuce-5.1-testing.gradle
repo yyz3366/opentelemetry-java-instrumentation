@@ -1,15 +1,16 @@
-apply from: "$rootDir/gradle/java.gradle"
+plugins {
+  id("otel.java-conventions")
+}
 
 dependencies {
   api project(':testing-common')
 
-  api group: 'io.lettuce', name: 'lettuce-core', version: '5.1.0.RELEASE'
+  api "io.lettuce:lettuce-core:5.1.0.RELEASE"
 
-  api group: 'com.github.kstyrc', name: 'embedded-redis', version: '0.6'
+  implementation "org.testcontainers:testcontainers"
+  implementation "com.google.guava:guava"
 
-  implementation deps.guava
-
-  implementation deps.groovy
-  implementation deps.opentelemetryApi
-  implementation deps.spock
+  implementation "org.codehaus.groovy:groovy-all"
+  implementation "io.opentelemetry:opentelemetry-api"
+  implementation "org.spockframework:spock-core"
 }

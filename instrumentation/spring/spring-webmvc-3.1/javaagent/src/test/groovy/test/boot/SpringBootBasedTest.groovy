@@ -14,12 +14,15 @@ import static io.opentelemetry.instrumentation.test.base.HttpServerTest.ServerEn
 import static io.opentelemetry.instrumentation.test.base.HttpServerTest.ServerEndpoint.REDIRECT
 import static io.opentelemetry.instrumentation.test.base.HttpServerTest.ServerEndpoint.SUCCESS
 
+import io.opentelemetry.api.trace.StatusCode
 import io.opentelemetry.instrumentation.test.AgentTestTrait
 import io.opentelemetry.instrumentation.test.asserts.TraceAssert
 import io.opentelemetry.instrumentation.test.base.HttpServerTest
 import io.opentelemetry.sdk.trace.data.SpanData
-import okhttp3.FormBody
-import okhttp3.RequestBody
+import io.opentelemetry.testing.internal.armeria.common.AggregatedHttpRequest
+import io.opentelemetry.testing.internal.armeria.common.HttpData
+import io.opentelemetry.testing.internal.armeria.common.MediaType
+import io.opentelemetry.testing.internal.armeria.common.QueryParams
 import org.springframework.boot.SpringApplication
 import org.springframework.context.ConfigurableApplicationContext
 import org.springframework.web.servlet.view.RedirectView
@@ -49,12 +52,7 @@ class SpringBootBasedTest extends HttpServerTest<ConfigurableApplicationContext>
   }
 
   @Override
-  boolean hasHandlerSpan() {
-    true
-  }
-
-  @Override
-  boolean hasExceptionOnServerSpan() {
+  boolean hasHandlerSpan(ServerEndpoint endpoint) {
     true
   }
 
@@ -73,45 +71,43 @@ class SpringBootBasedTest extends HttpServerTest<ConfigurableApplicationContext>
     true
   }
 
+  @Override
   boolean hasErrorPageSpans(ServerEndpoint endpoint) {
     endpoint == NOT_FOUND
   }
 
-  int getErrorPageSpansCount(ServerEndpoint endpoint) {
-    2
-  }
-
   @Override
   String expectedServerSpanName(ServerEndpoint endpoint) {
-    if (endpoint == PATH_PARAM) {
-      return getContextPath() + "/path/{id}/param"
-    } else if (endpoint == AUTH_ERROR || endpoint == NOT_FOUND) {
-      return getContextPath() + "/error"
-    } else if (endpoint == LOGIN) {
-      return "HTTP POST"
+    switch (endpoint) {
+      case PATH_PARAM:
+        return getContextPath() + "/path/{id}/param"
+      case NOT_FOUND:
+        return getContextPath() + "/**"
+      case LOGIN:
+        return getContextPath() + "/*"
+      default:
+        return super.expectedServerSpanName(endpoint)
     }
-    return super.expectedServerSpanName(endpoint)
   }
 
   def "test spans with auth error"() {
     setup:
     def authProvider = server.getBean(SavingAuthenticationProvider)
-    def request = request(AUTH_ERROR, "GET", null).build()
+    def request = request(AUTH_ERROR, "GET")
 
     when:
     authProvider.latestAuthentications.clear()
-    def response = client.newCall(request).execute()
+    def response = client.execute(request).aggregate().join()
 
     then:
-    response.code() == 401 // not secured
+    response.status().code() == 401 // not secured
 
     and:
     assertTraces(1) {
-      trace(0, 4) {
+      trace(0, 3) {
         serverSpan(it, 0, null, null, "GET", null, AUTH_ERROR)
         sendErrorSpan(it, 1, span(0))
-        forwardSpan(it, 2, span(0))
-        errorPageSpans(it, 3, null)
+        errorPageSpans(it, 2, null)
       }
     }
   }
@@ -120,24 +116,23 @@ class SpringBootBasedTest extends HttpServerTest<ConfigurableApplicationContext>
     setup:
     def authProvider = server.getBean(SavingAuthenticationProvider)
 
-    RequestBody formBody = new FormBody.Builder()
-      .add("username", "test")
-      .add("password", testPassword).build()
-
-    def request = request(LOGIN, "POST", formBody).build()
+    QueryParams form = QueryParams.of("username", "test", "password", testPassword)
+    def request = AggregatedHttpRequest.of(
+      request(LOGIN, "POST").headers().toBuilder().contentType(MediaType.FORM_DATA).build(),
+      HttpData.ofUtf8(form.toQueryString()))
 
     when:
     authProvider.latestAuthentications.clear()
-    def response = client.newCall(request).execute()
+    def response = client.execute(request).aggregate().join()
 
     then:
-    response.code() == 302 // redirect after success
+    response.status().code() == 302 // redirect after success
     authProvider.latestAuthentications.get(0).password == testPassword
 
     and:
     assertTraces(1) {
       trace(0, 2) {
-        serverSpan(it, 0, null, null, "POST", response.body()?.contentLength(), LOGIN)
+        serverSpan(it, 0, null, null, "POST", response.contentUtf8().length(), LOGIN)
         redirectSpan(it, 1, span(0))
       }
     }
@@ -148,14 +143,9 @@ class SpringBootBasedTest extends HttpServerTest<ConfigurableApplicationContext>
 
   @Override
   void errorPageSpans(TraceAssert trace, int index, Object parent, String method = "GET", ServerEndpoint endpoint = SUCCESS) {
-    if (endpoint == NOT_FOUND) {
-      forwardSpan(trace, index, trace.span(0))
-      index++
-    }
     trace.span(index) {
       name "BasicErrorController.error"
       kind INTERNAL
-      errored false
       attributes {
       }
     }
@@ -167,7 +157,6 @@ class SpringBootBasedTest extends HttpServerTest<ConfigurableApplicationContext>
     trace.span(index) {
       name responseSpanName
       kind INTERNAL
-      errored false
       attributes {
       }
     }
@@ -178,7 +167,6 @@ class SpringBootBasedTest extends HttpServerTest<ConfigurableApplicationContext>
     trace.span(index) {
       name "Render RedirectView"
       kind INTERNAL
-      errored false
       attributes {
         "spring-webmvc.view.type" RedirectView.simpleName
       }
@@ -194,8 +182,8 @@ class SpringBootBasedTest extends HttpServerTest<ConfigurableApplicationContext>
     trace.span(index) {
       name handlerSpanName
       kind INTERNAL
-      errored endpoint == EXCEPTION
       if (endpoint == EXCEPTION) {
+        status StatusCode.ERROR
         errorEvent(Exception, EXCEPTION.body)
       }
       childOf((SpanData) parent)

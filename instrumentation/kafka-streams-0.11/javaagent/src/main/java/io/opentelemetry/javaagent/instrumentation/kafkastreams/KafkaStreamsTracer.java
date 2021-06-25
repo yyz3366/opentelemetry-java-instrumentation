@@ -18,7 +18,7 @@ import org.apache.kafka.streams.processor.internals.StampedRecord;
 public class KafkaStreamsTracer extends BaseTracer {
   private static final KafkaStreamsTracer TRACER = new KafkaStreamsTracer();
 
-  private final boolean captureExperimentalSpanAttributes =
+  private static final boolean CAPTURE_EXPERIMENTAL_SPAN_ATTRIBUTES =
       Config.get()
           .getBooleanProperty("otel.instrumentation.kafka.experimental-span-attributes", false);
 
@@ -36,7 +36,7 @@ public class KafkaStreamsTracer extends BaseTracer {
             .setAttribute(SemanticAttributes.MESSAGING_OPERATION, "process")
             .startSpan();
     onConsume(span, record);
-    return parentContext.with(span);
+    return withConsumerSpan(parentContext, span);
   }
 
   public String spanNameForConsume(StampedRecord record) {
@@ -49,7 +49,7 @@ public class KafkaStreamsTracer extends BaseTracer {
   public void onConsume(Span span, StampedRecord record) {
     if (record != null) {
       span.setAttribute(SemanticAttributes.MESSAGING_KAFKA_PARTITION, record.partition());
-      if (captureExperimentalSpanAttributes) {
+      if (CAPTURE_EXPERIMENTAL_SPAN_ATTRIBUTES) {
         span.setAttribute("kafka.offset", record.offset());
       }
     }

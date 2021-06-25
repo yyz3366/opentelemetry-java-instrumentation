@@ -33,25 +33,24 @@ class RestTemplateAutoConfigurationTest {
   @DisplayName("when httpclients are ENABLED should initialize RestTemplateInterceptor bean")
   void httpClientsEnabled() {
     this.contextRunner
-        .withPropertyValues("opentelemetry.trace.httpclients.enabled=true")
+        .withPropertyValues("otel.springboot.httpclients.enabled=true")
         .run(
-            (context) -> {
-              assertThat(
-                      context.getBean(
-                          "otelRestTemplateBeanPostProcessor", RestTemplateBeanPostProcessor.class))
-                  .isNotNull();
-            });
+            context ->
+                assertThat(
+                        context.getBean(
+                            "otelRestTemplateBeanPostProcessor",
+                            RestTemplateBeanPostProcessor.class))
+                    .isNotNull());
   }
 
   @Test
   @DisplayName("when httpclients are DISABLED should NOT initialize RestTemplateInterceptor bean")
   void disabledProperty() {
     this.contextRunner
-        .withPropertyValues("opentelemetry.trace.httpclients.enabled=false")
+        .withPropertyValues("otel.springboot.httpclients.enabled=false")
         .run(
-            (context) -> {
-              assertThat(context.containsBean("otelRestTemplateBeanPostProcessor")).isFalse();
-            });
+            context ->
+                assertThat(context.containsBean("otelRestTemplateBeanPostProcessor")).isFalse());
   }
 
   @Test
@@ -59,11 +58,10 @@ class RestTemplateAutoConfigurationTest {
       "when httpclients enabled property is MISSING should initialize RestTemplateInterceptor bean")
   void noProperty() {
     this.contextRunner.run(
-        (context) -> {
-          assertThat(
-                  context.getBean(
-                      "otelRestTemplateBeanPostProcessor", RestTemplateBeanPostProcessor.class))
-              .isNotNull();
-        });
+        context ->
+            assertThat(
+                    context.getBean(
+                        "otelRestTemplateBeanPostProcessor", RestTemplateBeanPostProcessor.class))
+                .isNotNull());
   }
 }

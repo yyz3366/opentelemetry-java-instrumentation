@@ -5,11 +5,11 @@
 
 package io.opentelemetry.javaagent.instrumentation.couchbase.v3_1;
 
-import static io.opentelemetry.javaagent.tooling.bytebuddy.matcher.ClassLoaderMatcher.hasClassesNamed;
+import static io.opentelemetry.javaagent.extension.matcher.ClassLoaderMatcher.hasClassesNamed;
 
 import com.google.auto.service.AutoService;
-import io.opentelemetry.javaagent.tooling.InstrumentationModule;
-import io.opentelemetry.javaagent.tooling.TypeInstrumentation;
+import io.opentelemetry.javaagent.extension.instrumentation.InstrumentationModule;
+import io.opentelemetry.javaagent.extension.instrumentation.TypeInstrumentation;
 import java.util.Collections;
 import java.util.List;
 import net.bytebuddy.matcher.ElementMatcher;
@@ -21,11 +21,8 @@ public class CouchbaseInstrumentationModule extends InstrumentationModule {
   }
 
   @Override
-  protected String[] additionalHelperClassNames() {
-    return new String[] {
-      "com.couchbase.client.tracing.opentelemetry.OpenTelemetryRequestSpan",
-      "com.couchbase.client.tracing.opentelemetry.OpenTelemetryRequestTracer"
-    };
+  public boolean isHelperClass(String className) {
+    return className.startsWith("com.couchbase.client.tracing.opentelemetry");
   }
 
   @Override

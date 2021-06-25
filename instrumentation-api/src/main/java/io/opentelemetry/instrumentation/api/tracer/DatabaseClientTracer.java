@@ -28,11 +28,11 @@ public abstract class DatabaseClientTracer<CONNECTION, STATEMENT, SANITIZEDSTATE
 
   protected final NetPeerAttributes netPeerAttributes;
 
-  public DatabaseClientTracer(NetPeerAttributes netPeerAttributes) {
+  protected DatabaseClientTracer(NetPeerAttributes netPeerAttributes) {
     this.netPeerAttributes = netPeerAttributes;
   }
 
-  public DatabaseClientTracer(OpenTelemetry openTelemetry, NetPeerAttributes netPeerAttributes) {
+  protected DatabaseClientTracer(OpenTelemetry openTelemetry, NetPeerAttributes netPeerAttributes) {
     super(openTelemetry);
     this.netPeerAttributes = netPeerAttributes;
   }
@@ -121,6 +121,7 @@ public abstract class DatabaseClientTracer<CONNECTION, STATEMENT, SANITIZEDSTATE
     return null;
   }
 
+  @Nullable
   protected String dbConnectionString(CONNECTION connection) {
     return null;
   }
@@ -129,6 +130,7 @@ public abstract class DatabaseClientTracer<CONNECTION, STATEMENT, SANITIZEDSTATE
     netPeerAttributes.setNetPeer(span, peerAddress(connection));
   }
 
+  @Nullable
   protected abstract InetSocketAddress peerAddress(CONNECTION connection);
 
   protected void onStatement(
