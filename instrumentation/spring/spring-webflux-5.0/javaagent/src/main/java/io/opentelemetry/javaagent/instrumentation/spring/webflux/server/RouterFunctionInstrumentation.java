@@ -6,7 +6,7 @@
 package io.opentelemetry.javaagent.instrumentation.spring.webflux.server;
 
 import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.extendsClass;
-import static io.opentelemetry.javaagent.extension.matcher.ClassLoaderMatcher.hasClassesNamed;
+import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.hasClassesNamed;
 import static net.bytebuddy.matcher.ElementMatchers.isAbstract;
 import static net.bytebuddy.matcher.ElementMatchers.isMethod;
 import static net.bytebuddy.matcher.ElementMatchers.isPublic;
@@ -22,7 +22,6 @@ import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
 import org.springframework.web.reactive.function.server.HandlerFunction;
 import org.springframework.web.reactive.function.server.RouterFunction;
-import org.springframework.web.reactive.function.server.ServerRequest;
 import reactor.core.publisher.Mono;
 
 public class RouterFunctionInstrumentation implements TypeInstrumentation {
@@ -64,14 +63,11 @@ public class RouterFunctionInstrumentation implements TypeInstrumentation {
 
     @Advice.OnMethodExit(onThrowable = Throwable.class, suppress = Throwable.class)
     public static void methodExit(
-        @Advice.This RouterFunction thiz,
-        @Advice.Argument(0) ServerRequest serverRequest,
+        @Advice.This RouterFunction<?> thiz,
         @Advice.Return(readOnly = false) Mono<HandlerFunction<?>> result,
         @Advice.Thrown Throwable throwable) {
       if (throwable == null) {
-        result = result.doOnSuccessOrError(new RouteOnSuccessOrError(thiz, serverRequest));
-      } else {
-        AdviceUtils.finishSpanIfPresent(serverRequest, throwable);
+        result = result.doOnSuccessOrError(new RouteOnSuccessOrError(thiz));
       }
     }
   }

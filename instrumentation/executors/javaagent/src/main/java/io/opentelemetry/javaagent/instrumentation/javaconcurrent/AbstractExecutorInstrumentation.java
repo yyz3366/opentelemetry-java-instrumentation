@@ -23,7 +23,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public abstract class AbstractExecutorInstrumentation implements TypeInstrumentation {
-  private static final Logger log = LoggerFactory.getLogger(AbstractExecutorInstrumentation.class);
+  private static final Logger logger =
+      LoggerFactory.getLogger(AbstractExecutorInstrumentation.class);
 
   private static final String EXECUTORS_INCLUDE_PROPERTY_NAME =
       "otel.instrumentation.executors.include";
@@ -32,7 +33,7 @@ public abstract class AbstractExecutorInstrumentation implements TypeInstrumenta
       "otel.instrumentation.executors.include-all";
 
   private static final boolean INCLUDE_ALL =
-      Config.get().getBooleanProperty(EXECUTORS_INCLUDE_ALL_PROPERTY_NAME, false);
+      Config.get().getBoolean(EXECUTORS_INCLUDE_ALL_PROPERTY_NAME, false);
 
   /**
    * Only apply executor instrumentation to allowed executors. To apply to all executors, use
@@ -86,6 +87,7 @@ public abstract class AbstractExecutorInstrumentation implements TypeInstrumenta
         "java.util.concurrent.ForkJoinPool",
         "java.util.concurrent.ScheduledThreadPoolExecutor",
         "java.util.concurrent.ThreadPoolExecutor",
+        "org.apache.tomcat.util.threads.ThreadPoolExecutor",
         "org.eclipse.jetty.util.thread.QueuedThreadPool", // dispatch() is covered in the jetty
         // module
         "org.eclipse.jetty.util.thread.ReservedThreadExecutor",
@@ -97,7 +99,7 @@ public abstract class AbstractExecutorInstrumentation implements TypeInstrumenta
         "scala.concurrent.impl.ExecutionContextImpl",
       };
       Set<String> combined = new HashSet<>(Arrays.asList(includeExecutors));
-      combined.addAll(Config.get().getListProperty(EXECUTORS_INCLUDE_PROPERTY_NAME));
+      combined.addAll(Config.get().getList(EXECUTORS_INCLUDE_PROPERTY_NAME));
       this.includeExecutors = Collections.unmodifiableSet(combined);
 
       String[] includePrefixes = {"slick.util.AsyncExecutor$"};
@@ -129,9 +131,9 @@ public abstract class AbstractExecutorInstrumentation implements TypeInstrumenta
                   }
 
                   if (!allowed
-                      && log.isDebugEnabled()
+                      && logger.isDebugEnabled()
                       && hasExecutorInterfaceMatcher.matches(target)) {
-                    log.debug("Skipping executor instrumentation for {}", target.getName());
+                    logger.debug("Skipping executor instrumentation for {}", target.getName());
                   }
                   return allowed;
                 }

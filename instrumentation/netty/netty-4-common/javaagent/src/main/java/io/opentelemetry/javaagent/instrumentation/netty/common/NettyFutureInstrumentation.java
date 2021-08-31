@@ -5,8 +5,8 @@
 
 package io.opentelemetry.javaagent.instrumentation.netty.common;
 
+import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.hasClassesNamed;
 import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.implementsInterface;
-import static io.opentelemetry.javaagent.extension.matcher.ClassLoaderMatcher.hasClassesNamed;
 import static net.bytebuddy.matcher.ElementMatchers.isArray;
 import static net.bytebuddy.matcher.ElementMatchers.isMethod;
 import static net.bytebuddy.matcher.ElementMatchers.named;
@@ -61,7 +61,9 @@ public class NettyFutureInstrumentation implements TypeInstrumentation {
     public static void wrapListener(
         @Advice.Argument(value = 0, readOnly = false)
             GenericFutureListener<? extends Future<?>> listener) {
-      listener = FutureListenerWrappers.wrap(Java8BytecodeBridge.currentContext(), listener);
+      if (FutureListenerWrappers.shouldWrap(listener)) {
+        listener = FutureListenerWrappers.wrap(Java8BytecodeBridge.currentContext(), listener);
+      }
     }
   }
 
@@ -78,7 +80,9 @@ public class NettyFutureInstrumentation implements TypeInstrumentation {
       GenericFutureListener<? extends Future<?>>[] wrappedListeners =
           new GenericFutureListener[listeners.length];
       for (int i = 0; i < listeners.length; ++i) {
-        wrappedListeners[i] = FutureListenerWrappers.wrap(context, listeners[i]);
+        if (FutureListenerWrappers.shouldWrap(listeners[i])) {
+          wrappedListeners[i] = FutureListenerWrappers.wrap(context, listeners[i]);
+        }
       }
       listeners = wrappedListeners;
     }

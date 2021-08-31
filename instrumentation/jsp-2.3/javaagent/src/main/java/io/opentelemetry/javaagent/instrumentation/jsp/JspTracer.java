@@ -21,8 +21,7 @@ import org.slf4j.LoggerFactory;
 public class JspTracer extends BaseTracer {
 
   private static final boolean CAPTURE_EXPERIMENTAL_SPAN_ATTRIBUTES =
-      Config.get()
-          .getBooleanProperty("otel.instrumentation.jsp.experimental-span-attributes", false);
+      Config.get().getBoolean("otel.instrumentation.jsp.experimental-span-attributes", false);
 
   private static final JspTracer TRACER = new JspTracer();
 
@@ -83,6 +82,6 @@ public class JspTracer extends BaseTracer {
 
   @Override
   protected String getInstrumentationName() {
-    return "io.opentelemetry.javaagent.jsp-2.3";
+    return "io.opentelemetry.jsp-2.3";
   }
 }

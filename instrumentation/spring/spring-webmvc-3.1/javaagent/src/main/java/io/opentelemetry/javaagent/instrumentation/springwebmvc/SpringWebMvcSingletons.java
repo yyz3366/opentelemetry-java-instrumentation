@@ -6,11 +6,12 @@
 package io.opentelemetry.javaagent.instrumentation.springwebmvc;
 
 import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.instrumentation.api.config.ExperimentalConfig;
 import io.opentelemetry.instrumentation.api.instrumenter.Instrumenter;
 import org.springframework.web.servlet.ModelAndView;
 
 public final class SpringWebMvcSingletons {
-  private static final String INSTRUMENTATION_NAME = "io.opentelemetry.javaagent.spring-webmvc-3.1";
+  private static final String INSTRUMENTATION_NAME = "io.opentelemetry.spring-webmvc-3.1";
 
   private static final Instrumenter<Object, Void> HANDLER_INSTRUMENTER;
 
@@ -20,6 +21,7 @@ public final class SpringWebMvcSingletons {
     HANDLER_INSTRUMENTER =
         Instrumenter.<Object, Void>newBuilder(
                 GlobalOpenTelemetry.get(), INSTRUMENTATION_NAME, new HandlerSpanNameExtractor())
+            .setDisabled(ExperimentalConfig.get().suppressControllerSpans())
             .newInstrumenter();
 
     MODEL_AND_VIEW_INSTRUMENTER =
@@ -28,6 +30,7 @@ public final class SpringWebMvcSingletons {
                 INSTRUMENTATION_NAME,
                 new ModelAndViewSpanNameExtractor())
             .addAttributesExtractor(new ModelAndViewAttributesExtractor())
+            .setDisabled(ExperimentalConfig.get().suppressViewSpans())
             .newInstrumenter();
   }
 

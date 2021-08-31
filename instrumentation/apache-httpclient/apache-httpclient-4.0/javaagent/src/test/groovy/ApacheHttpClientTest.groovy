@@ -6,14 +6,21 @@
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.instrumentation.test.AgentTestTrait
 import io.opentelemetry.instrumentation.test.base.HttpClientTest
+import io.opentelemetry.instrumentation.testing.junit.http.AbstractHttpClientTest
 import io.opentelemetry.semconv.trace.attributes.SemanticAttributes
 import java.util.function.Consumer
 import org.apache.http.HttpHost
 import org.apache.http.HttpRequest
 import org.apache.http.HttpResponse
+import org.apache.http.client.params.ClientPNames
+import org.apache.http.conn.ClientConnectionManager
+import org.apache.http.conn.ClientConnectionManagerFactory
+import org.apache.http.conn.scheme.SchemeRegistry
 import org.apache.http.impl.client.DefaultHttpClient
+import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager
 import org.apache.http.message.BasicHeader
 import org.apache.http.message.BasicHttpRequest
+import org.apache.http.params.BasicHttpParams
 import org.apache.http.params.HttpConnectionParams
 import org.apache.http.params.HttpParams
 import org.apache.http.protocol.BasicHttpContext
@@ -21,16 +28,24 @@ import spock.lang.Shared
 
 abstract class ApacheHttpClientTest<T extends HttpRequest> extends HttpClientTest<T> implements AgentTestTrait {
   @Shared
-  def client = new DefaultHttpClient()
+  DefaultHttpClient client
 
   def setupSpec() {
-    HttpParams httpParams = client.getParams()
+    HttpParams httpParams = new BasicHttpParams()
     HttpConnectionParams.setConnectionTimeout(httpParams, CONNECT_TIMEOUT_MS)
+    httpParams.setParameter(ClientPNames.CONNECTION_MANAGER_FACTORY_CLASS_NAME, ThreadSafeClientConnManagerFactory.getName())
+    client = new DefaultHttpClient(httpParams)
   }
 
-  @Override
-  boolean testCausality() {
-    false
+  static class ThreadSafeClientConnManagerFactory implements ClientConnectionManagerFactory {
+    @Override
+    ClientConnectionManager newInstance(HttpParams httpParams, SchemeRegistry schemeRegistry) {
+      return new ThreadSafeClientConnManager(httpParams, schemeRegistry)
+    }
+  }
+
+  def cleanupSpec() {
+    client.getConnectionManager().shutdown()
   }
 
   @Override
@@ -59,7 +74,7 @@ abstract class ApacheHttpClientTest<T extends HttpRequest> extends HttpClientTes
   }
 
   // compilation fails with @Override annotation on this method (groovy quirk?)
-  void sendRequestWithCallback(T request, String method, URI uri, Map<String, String> headers, RequestResult requestResult) {
+  void sendRequestWithCallback(T request, String method, URI uri, Map<String, String> headers, AbstractHttpClientTest.RequestResult requestResult) {
     try {
       executeRequestWithCallback(request, uri) {
         it.entity?.content?.close() // Make sure the connection is closed.
@@ -98,7 +113,27 @@ abstract class ApacheHttpClientTest<T extends HttpRequest> extends HttpClientTes
 class ApacheClientHostRequest extends ApacheHttpClientTest<BasicHttpRequest> {
   @Override
   BasicHttpRequest createRequest(String method, URI uri) {
+    // also testing with an absolute path below
     return new BasicHttpRequest(method, fullPathFromURI(uri))
+  }
+
+  @Override
+  HttpResponse executeRequest(BasicHttpRequest request, URI uri) {
+    return client.execute(new HttpHost(uri.getHost(), uri.getPort(), uri.getScheme()), request)
+  }
+
+  @Override
+  void executeRequestWithCallback(BasicHttpRequest request, URI uri, Consumer<HttpResponse> callback) {
+    client.execute(new HttpHost(uri.getHost(), uri.getPort(), uri.getScheme()), request) {
+      callback.accept(it)
+    }
+  }
+}
+
+class ApacheClientHostAbsoluteUriRequest extends ApacheHttpClientTest<BasicHttpRequest> {
+  @Override
+  BasicHttpRequest createRequest(String method, URI uri) {
+    return new BasicHttpRequest(method, uri.toString())
   }
 
   @Override
@@ -117,7 +152,27 @@ class ApacheClientHostRequest extends ApacheHttpClientTest<BasicHttpRequest> {
 class ApacheClientHostRequestContext extends ApacheHttpClientTest<BasicHttpRequest> {
   @Override
   BasicHttpRequest createRequest(String method, URI uri) {
+    // also testing with an absolute path below
     return new BasicHttpRequest(method, fullPathFromURI(uri))
+  }
+
+  @Override
+  HttpResponse executeRequest(BasicHttpRequest request, URI uri) {
+    return client.execute(new HttpHost(uri.getHost(), uri.getPort(), uri.getScheme()), request, new BasicHttpContext())
+  }
+
+  @Override
+  void executeRequestWithCallback(BasicHttpRequest request, URI uri, Consumer<HttpResponse> callback) {
+    client.execute(new HttpHost(uri.getHost(), uri.getPort(), uri.getScheme()), request, {
+      callback.accept(it)
+    }, new BasicHttpContext())
+  }
+}
+
+class ApacheClientHostAbsoluteUriRequestContext extends ApacheHttpClientTest<BasicHttpRequest> {
+  @Override
+  BasicHttpRequest createRequest(String method, URI uri) {
+    return new BasicHttpRequest(method, uri.toString())
   }
 
   @Override

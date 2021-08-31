@@ -13,8 +13,12 @@ import io.opentelemetry.context.ContextStorage
 import io.opentelemetry.instrumentation.test.asserts.InMemoryExporterAssert
 import io.opentelemetry.instrumentation.testing.InstrumentationTestRunner
 import io.opentelemetry.instrumentation.testing.util.TelemetryDataUtil
+import io.opentelemetry.instrumentation.testing.util.ThrowingSupplier
 import io.opentelemetry.sdk.metrics.data.MetricData
 import io.opentelemetry.sdk.trace.data.SpanData
+import java.util.concurrent.TimeUnit
+import org.junit.Rule
+import org.junit.rules.Timeout
 import spock.lang.Specification
 
 /**
@@ -24,6 +28,9 @@ import spock.lang.Specification
  */
 abstract class InstrumentationSpecification extends Specification {
   abstract InstrumentationTestRunner testRunner()
+
+  @Rule
+  public Timeout testTimeout = new Timeout(10, TimeUnit.MINUTES)
 
   def setupSpec() {
     testRunner().beforeTestClass()
@@ -97,5 +104,29 @@ abstract class InstrumentationSpecification extends Specification {
     @DelegatesTo(value = InMemoryExporterAssert, strategy = Closure.DELEGATE_FIRST)
     final Closure spec) {
     InMemoryExporterAssert.assertTraces({ testRunner().getExportedSpans() }, size, spec)
+  }
+
+  /**
+   * Runs the provided {@code callback} inside the scope of an INTERNAL span with name {@code
+   * spanName}.
+   */
+  def <T> T runWithSpan(String spanName, Closure callback) {
+    return (T) testRunner().runWithSpan(spanName, (ThrowingSupplier) callback)
+  }
+
+  /**
+   * Runs the provided {@code callback} inside the scope of an CLIENT span with name {@code
+   * spanName}.
+   */
+  def <T> T runWithClientSpan(String spanName, Closure callback) {
+    return (T) testRunner().runWithClientSpan(spanName, (ThrowingSupplier) callback)
+  }
+
+  /**
+   * Runs the provided {@code callback} inside the scope of an CLIENT span with name {@code
+   * spanName}.
+   */
+  def <T> T runWithServerSpan(String spanName, Closure callback) {
+    return (T) testRunner().runWithServerSpan(spanName, (ThrowingSupplier) callback)
   }
 }

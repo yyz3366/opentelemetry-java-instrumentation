@@ -33,7 +33,7 @@ import net.bytebuddy.matcher.ElementMatcher;
  */
 public abstract class InstrumentationModule implements Ordered {
   private static final boolean DEFAULT_ENABLED =
-      Config.get().getBooleanProperty("otel.instrumentation.common.default-enabled", true);
+      Config.get().getBoolean("otel.instrumentation.common.default-enabled", true);
 
   private final Set<String> instrumentationNames;
 
@@ -117,10 +117,18 @@ public abstract class InstrumentationModule implements Ordered {
     return false;
   }
 
-  /** Returns a list of resource names to inject into the user's classloader. */
+  /**
+   * Returns a list of resource names to inject into the user's class loader.
+   *
+   * @deprecated use {@link #registerHelperResources(HelperResourceBuilder)} instead.
+   */
+  @Deprecated
   public List<String> helperResourceNames() {
     return Collections.emptyList();
   }
+
+  /** Register resource names to inject into the user's class loader. */
+  public void registerHelperResources(HelperResourceBuilder helperResourceBuilder) {}
 
   /**
    * An instrumentation module can implement this method to make sure that the classloader contains
@@ -145,8 +153,7 @@ public abstract class InstrumentationModule implements Ordered {
    * advices, grouped by {@link ClassRef#getClassName()}.
    *
    * <p>The actual implementation of this method is generated automatically during compilation by
-   * the {@code io.opentelemetry.javaagent.tooling.muzzle.collector.MuzzleCodeGenerationPlugin}
-   * ByteBuddy plugin.
+   * the {@code io.opentelemetry.instrumentation.javaagent-codegen} Gradle plugin.
    *
    * <p><b>This method is generated automatically</b>: if you override it, the muzzle compile plugin
    * will not generate a new implementation, it will leave the existing one.
@@ -160,7 +167,7 @@ public abstract class InstrumentationModule implements Ordered {
    * compilation. Those helpers will be injected into the application classloader.
    *
    * <p>The actual implementation of this method is generated automatically during compilation by
-   * the {@code io.opentelemetry.javaagent.tooling.muzzle.collector.MuzzleCodeGenerationPlugin}
+   * the {@code io.opentelemetry.javaagent.muzzle.generation.collector.MuzzleCodeGenerationPlugin}
    * ByteBuddy plugin.
    *
    * <p><b>This method is generated automatically</b>: if you override it, the muzzle compile plugin
@@ -175,7 +182,7 @@ public abstract class InstrumentationModule implements Ordered {
    * associated with a context class stored in the value.
    *
    * <p>The actual implementation of this method is generated automatically during compilation by
-   * the {@code io.opentelemetry.javaagent.tooling.muzzle.collector.MuzzleCodeGenerationPlugin}
+   * the {@code io.opentelemetry.javaagent.muzzle.generation.collector.MuzzleCodeGenerationPlugin}
    * ByteBuddy plugin.
    *
    * <p><b>This method is generated automatically</b>: if you override it, the muzzle compile plugin

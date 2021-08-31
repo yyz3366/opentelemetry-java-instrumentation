@@ -5,7 +5,7 @@
 
 package io.opentelemetry.javaagent.instrumentation.lettuce.v5_0;
 
-import static io.opentelemetry.javaagent.extension.matcher.ClassLoaderMatcher.hasClassesNamed;
+import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.hasClassesNamed;
 import static java.util.Arrays.asList;
 import static net.bytebuddy.matcher.ElementMatchers.not;
 
@@ -30,6 +30,7 @@ public class LettuceInstrumentationModule extends InstrumentationModule {
   @Override
   public List<TypeInstrumentation> typeInstrumentations() {
     return asList(
+        new LettuceAsyncCommandInstrumentation(),
         new LettuceAsyncCommandsInstrumentation(),
         new LettuceClientInstrumentation(),
         new LettuceReactiveCommandsInstrumentation());

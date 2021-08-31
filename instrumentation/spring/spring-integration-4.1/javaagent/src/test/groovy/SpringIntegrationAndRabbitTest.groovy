@@ -56,17 +56,19 @@ class SpringIntegrationAndRabbitTest extends AgentInstrumentationSpecification i
         }
         span(3) {
           // span created by rabbitmq instrumentation
-          name "testTopic -> testTopic send"
+          name "testTopic send"
           childOf span(1)
           kind PRODUCER
           attributes {
-            "${SemanticAttributes.NET_PEER_NAME.key}" "localhost"
+            // "localhost" on linux, null on windows
+            "${SemanticAttributes.NET_PEER_NAME.key}" { it == "localhost" || it == null }
             "${SemanticAttributes.NET_PEER_IP.key}" "127.0.0.1"
             "${SemanticAttributes.NET_PEER_PORT.key}" Long
             "${SemanticAttributes.MESSAGING_SYSTEM.key}" "rabbitmq"
             "${SemanticAttributes.MESSAGING_DESTINATION.key}" "testTopic"
             "${SemanticAttributes.MESSAGING_DESTINATION_KIND.key}" "queue"
             "${SemanticAttributes.MESSAGING_MESSAGE_PAYLOAD_SIZE_BYTES.key}" Long
+            "${SemanticAttributes.MESSAGING_RABBITMQ_ROUTING_KEY.key}" String
           }
         }
         // spring-cloud-stream-binder-rabbit listener puts all messages into a BlockingQueue immediately after receiving
@@ -82,6 +84,7 @@ class SpringIntegrationAndRabbitTest extends AgentInstrumentationSpecification i
             "${SemanticAttributes.MESSAGING_DESTINATION_KIND.key}" "queue"
             "${SemanticAttributes.MESSAGING_OPERATION.key}" "process"
             "${SemanticAttributes.MESSAGING_MESSAGE_PAYLOAD_SIZE_BYTES.key}" Long
+            "${SemanticAttributes.MESSAGING_RABBITMQ_ROUTING_KEY.key}" String
           }
         }
         // spring-integration will detect that spring-rabbit has already created a consumer span and back off
@@ -112,7 +115,8 @@ class SpringIntegrationAndRabbitTest extends AgentInstrumentationSpecification i
           name "basic.ack"
           kind CLIENT
           attributes {
-            "${SemanticAttributes.NET_PEER_NAME.key}" "localhost"
+            // "localhost" on linux, null on windows
+            "${SemanticAttributes.NET_PEER_NAME.key}" { it == "localhost" || it == null }
             "${SemanticAttributes.NET_PEER_IP.key}" "127.0.0.1"
             "${SemanticAttributes.NET_PEER_PORT.key}" Long
             "${SemanticAttributes.MESSAGING_SYSTEM.key}" "rabbitmq"

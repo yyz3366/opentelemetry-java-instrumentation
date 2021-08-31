@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 
 final class MessagePropertySetter implements TextMapSetter<MessageWithDestination> {
 
-  private static final Logger log = LoggerFactory.getLogger(MessagePropertySetter.class);
+  private static final Logger logger = LoggerFactory.getLogger(MessagePropertySetter.class);
 
   static final String DASH = "__dash__";
 
@@ -20,10 +20,10 @@ final class MessagePropertySetter implements TextMapSetter<MessageWithDestinatio
   public void set(MessageWithDestination carrier, String key, String value) {
     String propName = key.replace("-", DASH);
     try {
-      carrier.getMessage().setStringProperty(propName, value);
+      carrier.message().setStringProperty(propName, value);
     } catch (JMSException e) {
-      if (log.isDebugEnabled()) {
-        log.debug("Failure setting jms property: {}", propName, e);
+      if (logger.isDebugEnabled()) {
+        logger.debug("Failure setting jms property: {}", propName, e);
       }
     }
   }

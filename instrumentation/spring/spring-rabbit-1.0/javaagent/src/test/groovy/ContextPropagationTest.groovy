@@ -7,7 +7,6 @@ import static io.opentelemetry.api.trace.SpanKind.CLIENT
 import static io.opentelemetry.api.trace.SpanKind.CONSUMER
 import static io.opentelemetry.api.trace.SpanKind.PRODUCER
 import static io.opentelemetry.instrumentation.test.utils.TraceUtils.runInternalSpan
-import static io.opentelemetry.instrumentation.test.utils.TraceUtils.runUnderTrace
 
 import com.rabbitmq.client.ConnectionFactory
 import io.opentelemetry.instrumentation.test.AgentInstrumentationSpecification
@@ -65,7 +64,7 @@ class ContextPropagationTest extends AgentInstrumentationSpecification {
     def channel = connection.createChannel()
 
     when:
-    runUnderTrace("parent") {
+    runWithSpan("parent") {
       applicationContext.getBean(AmqpTemplate)
         .convertAndSend(ConsumerConfig.TEST_QUEUE, "test")
     }
@@ -78,17 +77,19 @@ class ContextPropagationTest extends AgentInstrumentationSpecification {
         }
         span(1) {
           // created by rabbitmq instrumentation
-          name "<default> -> testQueue send"
+          name "<default> send"
           kind PRODUCER
           childOf span(0)
           attributes {
-            "${SemanticAttributes.NET_PEER_NAME.key}" "localhost"
+            // "localhost" on linux, null on windows
+            "${SemanticAttributes.NET_PEER_NAME.key}" { it == "localhost" || it == null }
             "${SemanticAttributes.NET_PEER_IP.key}" "127.0.0.1"
             "${SemanticAttributes.NET_PEER_PORT.key}" Long
             "${SemanticAttributes.MESSAGING_SYSTEM.key}" "rabbitmq"
             "${SemanticAttributes.MESSAGING_DESTINATION.key}" "<default>"
             "${SemanticAttributes.MESSAGING_DESTINATION_KIND.key}" "queue"
             "${SemanticAttributes.MESSAGING_MESSAGE_PAYLOAD_SIZE_BYTES.key}" Long
+            "${SemanticAttributes.MESSAGING_RABBITMQ_ROUTING_KEY.key}" String
           }
         }
         // spring-cloud-stream-binder-rabbit listener puts all messages into a BlockingQueue immediately after receiving
@@ -104,6 +105,7 @@ class ContextPropagationTest extends AgentInstrumentationSpecification {
             "${SemanticAttributes.MESSAGING_DESTINATION_KIND.key}" "queue"
             "${SemanticAttributes.MESSAGING_OPERATION.key}" "process"
             "${SemanticAttributes.MESSAGING_MESSAGE_PAYLOAD_SIZE_BYTES.key}" Long
+            "${SemanticAttributes.MESSAGING_RABBITMQ_ROUTING_KEY.key}" String
           }
         }
         span(3) {
@@ -130,7 +132,8 @@ class ContextPropagationTest extends AgentInstrumentationSpecification {
           name "basic.ack"
           kind CLIENT
           attributes {
-            "${SemanticAttributes.NET_PEER_NAME.key}" "localhost"
+            // "localhost" on linux, null on windows
+            "${SemanticAttributes.NET_PEER_NAME.key}" { it == "localhost" || it == null }
             "${SemanticAttributes.NET_PEER_IP.key}" "127.0.0.1"
             "${SemanticAttributes.NET_PEER_PORT.key}" Long
             "${SemanticAttributes.MESSAGING_SYSTEM.key}" "rabbitmq"

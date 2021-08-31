@@ -12,7 +12,7 @@ import io.opentelemetry.context.Scope;
 import io.opentelemetry.instrumentation.api.servlet.AppServerBridge;
 import io.opentelemetry.instrumentation.api.servlet.MappingResolver;
 import io.opentelemetry.instrumentation.api.tracer.ServerSpan;
-import io.opentelemetry.javaagent.instrumentation.api.CallDepthThreadLocalMap;
+import io.opentelemetry.javaagent.instrumentation.api.CallDepth;
 import io.opentelemetry.javaagent.instrumentation.api.InstrumentationContext;
 import io.opentelemetry.javaagent.instrumentation.api.Java8BytecodeBridge;
 import io.opentelemetry.javaagent.instrumentation.servlet.common.service.ServletAndFilterAdviceHelper;
@@ -33,9 +33,13 @@ public class Servlet3Advice {
       @Advice.This(typing = Assigner.Typing.DYNAMIC) Object servletOrFilter,
       @Advice.Argument(value = 0, readOnly = false) ServletRequest request,
       @Advice.Argument(value = 1, readOnly = false) ServletResponse response,
+      @Advice.Local("otelCallDepth") CallDepth callDepth,
       @Advice.Local("otelContext") Context context,
       @Advice.Local("otelScope") Scope scope) {
-    CallDepthThreadLocalMap.incrementCallDepth(AppServerBridge.getCallDepthKey());
+
+    callDepth = CallDepth.forClass(AppServerBridge.getCallDepthKey());
+    callDepth.getAndIncrement();
+
     if (!(request instanceof HttpServletRequest) || !(response instanceof HttpServletResponse)) {
       return;
     }
@@ -54,8 +58,9 @@ public class Servlet3Advice {
               .get((Filter) servletOrFilter);
     }
 
+    Context currentContext = Java8BytecodeBridge.currentContext();
     Context attachedContext = tracer().getServerContext(httpServletRequest);
-    if (attachedContext != null && tracer().needsRescoping(attachedContext)) {
+    if (attachedContext != null && tracer().needsRescoping(currentContext, attachedContext)) {
       attachedContext =
           tracer().updateContext(attachedContext, httpServletRequest, mappingResolver, servlet);
       scope = attachedContext.makeCurrent();
@@ -63,7 +68,6 @@ public class Servlet3Advice {
       return;
     }
 
-    Context currentContext = Java8BytecodeBridge.currentContext();
     if (attachedContext != null || ServerSpan.fromContextOrNull(currentContext) != null) {
       // Update context with info from current request to ensure that server span gets the best
       // possible name.
@@ -91,8 +95,11 @@ public class Servlet3Advice {
       @Advice.Argument(0) ServletRequest request,
       @Advice.Argument(1) ServletResponse response,
       @Advice.Thrown Throwable throwable,
+      @Advice.Local("otelCallDepth") CallDepth callDepth,
       @Advice.Local("otelContext") Context context,
       @Advice.Local("otelScope") Scope scope) {
+
+    boolean topLevel = callDepth.decrementAndGet() == 0;
 
     if (!(request instanceof HttpServletRequest) || !(response instanceof HttpServletResponse)) {
       return;
@@ -103,6 +110,7 @@ public class Servlet3Advice {
         (HttpServletRequest) request,
         (HttpServletResponse) response,
         throwable,
+        topLevel,
         context,
         scope);
   }

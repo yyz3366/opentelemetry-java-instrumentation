@@ -18,11 +18,12 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 public final class NetPeerAttributes {
 
-  // TODO: this should only be used by the javaagent; move to javaagent-api after removing all
+  // TODO: this should only be used by the javaagent; move to javaagent-instrumentation-api after
+  // removing all
   // library usages
   public static final NetPeerAttributes INSTANCE =
       new NetPeerAttributes(
-          Config.get().getMapProperty("otel.instrumentation.common.peer-service-mapping"));
+          Config.get().getMap("otel.instrumentation.common.peer-service-mapping"));
 
   private final Map<String, String> peerServiceMapping;
 

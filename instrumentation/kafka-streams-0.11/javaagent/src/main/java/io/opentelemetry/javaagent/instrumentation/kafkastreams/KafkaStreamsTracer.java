@@ -19,8 +19,7 @@ public class KafkaStreamsTracer extends BaseTracer {
   private static final KafkaStreamsTracer TRACER = new KafkaStreamsTracer();
 
   private static final boolean CAPTURE_EXPERIMENTAL_SPAN_ATTRIBUTES =
-      Config.get()
-          .getBooleanProperty("otel.instrumentation.kafka.experimental-span-attributes", false);
+      Config.get().getBoolean("otel.instrumentation.kafka.experimental-span-attributes", false);
 
   public static KafkaStreamsTracer tracer() {
     return TRACER;
@@ -57,6 +56,6 @@ public class KafkaStreamsTracer extends BaseTracer {
 
   @Override
   protected String getInstrumentationName() {
-    return "io.opentelemetry.javaagent.kafka-streams-0.11";
+    return "io.opentelemetry.kafka-streams-0.11";
   }
 }

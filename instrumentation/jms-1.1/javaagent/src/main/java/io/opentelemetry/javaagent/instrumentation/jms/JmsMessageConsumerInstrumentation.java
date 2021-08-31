@@ -5,8 +5,8 @@
 
 package io.opentelemetry.javaagent.instrumentation.jms;
 
+import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.hasClassesNamed;
 import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.implementsInterface;
-import static io.opentelemetry.javaagent.extension.matcher.ClassLoaderMatcher.hasClassesNamed;
 import static io.opentelemetry.javaagent.instrumentation.jms.JmsSingletons.consumerInstrumenter;
 import static net.bytebuddy.matcher.ElementMatchers.isPublic;
 import static net.bytebuddy.matcher.ElementMatchers.named;
@@ -17,7 +17,6 @@ import io.opentelemetry.instrumentation.api.instrumenter.messaging.MessageOperat
 import io.opentelemetry.javaagent.extension.instrumentation.TypeInstrumentation;
 import io.opentelemetry.javaagent.extension.instrumentation.TypeTransformer;
 import io.opentelemetry.javaagent.instrumentation.api.Java8BytecodeBridge;
-import java.time.Instant;
 import javax.jms.Message;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.type.TypeDescription;
@@ -49,13 +48,13 @@ public class JmsMessageConsumerInstrumentation implements TypeInstrumentation {
   public static class ConsumerAdvice {
 
     @Advice.OnMethodEnter
-    public static Instant onEnter() {
-      return Instant.now();
+    public static Timer onEnter() {
+      return Timer.start();
     }
 
     @Advice.OnMethodExit(onThrowable = Throwable.class, suppress = Throwable.class)
     public static void stopSpan(
-        @Advice.Enter Instant startTime,
+        @Advice.Enter Timer timer,
         @Advice.Return Message message,
         @Advice.Thrown Throwable throwable) {
       if (message == null) {
@@ -65,7 +64,7 @@ public class JmsMessageConsumerInstrumentation implements TypeInstrumentation {
 
       Context parentContext = Java8BytecodeBridge.currentContext();
       MessageWithDestination request =
-          MessageWithDestination.create(message, MessageOperation.RECEIVE, null, startTime);
+          MessageWithDestination.create(message, MessageOperation.RECEIVE, null, timer);
 
       if (consumerInstrumenter().shouldStart(parentContext, request)) {
         Context context = consumerInstrumenter().start(parentContext, request);

@@ -5,8 +5,8 @@
 
 package io.opentelemetry.javaagent.instrumentation.extannotations;
 
-import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.safeHasSuperType;
-import static io.opentelemetry.javaagent.extension.matcher.ClassLoaderMatcher.hasClassesNamed;
+import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.hasClassesNamed;
+import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.hasSuperType;
 import static io.opentelemetry.javaagent.instrumentation.extannotations.ExternalAnnotationTracer.tracer;
 import static net.bytebuddy.matcher.ElementMatchers.declaresMethod;
 import static net.bytebuddy.matcher.ElementMatchers.isAnnotatedWith;
@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
 
 public class ExternalAnnotationInstrumentation implements TypeInstrumentation {
 
-  private static final Logger log =
+  private static final Logger logger =
       LoggerFactory.getLogger(ExternalAnnotationInstrumentationModule.class);
 
   private static final String PACKAGE_CLASS_NAME_REGEX = "[\\w.$]+";
@@ -99,7 +99,7 @@ public class ExternalAnnotationInstrumentation implements TypeInstrumentation {
 
   @Override
   public ElementMatcher<TypeDescription> typeMatcher() {
-    return safeHasSuperType(declaresMethod(isAnnotatedWith(traceAnnotationMatcher)));
+    return hasSuperType(declaresMethod(isAnnotatedWith(traceAnnotationMatcher)));
   }
 
   @Override
@@ -110,13 +110,13 @@ public class ExternalAnnotationInstrumentation implements TypeInstrumentation {
   }
 
   private static Set<String> configureAdditionalTraceAnnotations(Config config) {
-    String configString = config.getProperty(TRACE_ANNOTATIONS_CONFIG);
+    String configString = config.getString(TRACE_ANNOTATIONS_CONFIG);
     if (configString == null) {
       return Collections.unmodifiableSet(new HashSet<>(DEFAULT_ANNOTATIONS));
     } else if (configString.isEmpty()) {
       return Collections.emptySet();
     } else if (!configString.matches(CONFIG_FORMAT)) {
-      log.warn(
+      logger.warn(
           "Invalid trace annotations config '{}'. Must match 'package.Annotation$Name;*'.",
           configString);
       return Collections.emptySet();
@@ -141,7 +141,7 @@ public class ExternalAnnotationInstrumentation implements TypeInstrumentation {
 
     Map<String, Set<String>> excludedMethods =
         MethodsConfigurationParser.parse(
-            Config.get().getProperty(TRACE_ANNOTATED_METHODS_EXCLUDE_CONFIG));
+            Config.get().getString(TRACE_ANNOTATED_METHODS_EXCLUDE_CONFIG));
     for (Map.Entry<String, Set<String>> entry : excludedMethods.entrySet()) {
       String className = entry.getKey();
       ElementMatcher.Junction<ByteCodeElement> classMather =

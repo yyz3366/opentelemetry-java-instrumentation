@@ -6,7 +6,7 @@
 package io.opentelemetry.javaagent.instrumentation.asynchttpclient.v1_9;
 
 import static io.opentelemetry.javaagent.instrumentation.api.Java8BytecodeBridge.currentContext;
-import static io.opentelemetry.javaagent.instrumentation.asynchttpclient.v1_9.AsyncHttpClientTracer.tracer;
+import static io.opentelemetry.javaagent.instrumentation.asynchttpclient.v1_9.AsyncHttpClientSingletons.instrumenter;
 import static net.bytebuddy.matcher.ElementMatchers.isPublic;
 import static net.bytebuddy.matcher.ElementMatchers.named;
 import static net.bytebuddy.matcher.ElementMatchers.takesArgument;
@@ -18,7 +18,6 @@ import io.opentelemetry.context.Scope;
 import io.opentelemetry.javaagent.extension.instrumentation.TypeInstrumentation;
 import io.opentelemetry.javaagent.extension.instrumentation.TypeTransformer;
 import io.opentelemetry.javaagent.instrumentation.api.InstrumentationContext;
-import io.opentelemetry.javaagent.instrumentation.api.Pair;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
@@ -49,13 +48,13 @@ public class RequestInstrumentation implements TypeInstrumentation {
         @Advice.Argument(1) AsyncHandler<?> handler,
         @Advice.Local("otelScope") Scope scope) {
       Context parentContext = currentContext();
-      if (!tracer().shouldStartSpan(parentContext)) {
+      if (!instrumenter().shouldStart(parentContext, request)) {
         return;
       }
 
-      Context context = tracer().startSpan(parentContext, request, request);
-      InstrumentationContext.get(AsyncHandler.class, Pair.class)
-          .put(handler, Pair.of(parentContext, context));
+      Context context = instrumenter().start(parentContext, request);
+      InstrumentationContext.get(AsyncHandler.class, AsyncHandlerData.class)
+          .put(handler, AsyncHandlerData.create(parentContext, context, request));
       scope = context.makeCurrent();
     }
 
@@ -64,7 +63,7 @@ public class RequestInstrumentation implements TypeInstrumentation {
       if (scope != null) {
         scope.close();
       }
-      // span ended in ResponseAdvice or ResponseFailureAdvice
+      // span ended in OnCompletedAdvice or OnThrowableAdvice
     }
   }
 }

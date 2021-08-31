@@ -12,11 +12,12 @@ import io.opentelemetry.instrumentation.api.config.Config;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class ContextPropagationDebug {
-  private static final Logger log = LoggerFactory.getLogger(ContextPropagationDebug.class);
+  private static final Logger logger = LoggerFactory.getLogger(ContextPropagationDebug.class);
 
   // locations where the context was propagated to another thread (tracking multiple steps is
   // helpful in akka where there is so much recursive async spawning of new work)
@@ -25,12 +26,12 @@ public final class ContextPropagationDebug {
 
   private static final boolean THREAD_PROPAGATION_DEBUGGER =
       Config.get()
-          .getBooleanProperty(
+          .getBoolean(
               "otel.javaagent.experimental.thread-propagation-debugger.enabled",
               Config.get().isAgentDebugEnabled());
 
   private static final boolean FAIL_ON_CONTEXT_LEAK =
-      Config.get().getBooleanProperty("otel.javaagent.testing.fail-on-context-leak", false);
+      Config.get().getBoolean("otel.javaagent.testing.fail-on-context-leak", false);
 
   public static boolean isThreadPropagationDebuggerEnabled() {
     return THREAD_PROPAGATION_DEBUGGER;
@@ -54,10 +55,10 @@ public final class ContextPropagationDebug {
 
     Context current = Context.current();
     if (current != Context.root()) {
-      log.error("Unexpected non-root current context found when extracting remote context!");
+      logger.error("Unexpected non-root current context found when extracting remote context!");
       Span currentSpan = Span.fromContextOrNull(current);
       if (currentSpan != null) {
-        log.error("It contains this span: {}", currentSpan);
+        logger.error("It contains this span: {}", currentSpan);
       }
 
       debugContextPropagation(current);
@@ -68,6 +69,7 @@ public final class ContextPropagationDebug {
     }
   }
 
+  @Nullable
   private static List<Propagation> getPropagations(Context context) {
     return context.get(THREAD_PROPAGATION_LOCATIONS);
   }
@@ -88,7 +90,7 @@ public final class ContextPropagationDebug {
           sb.append("\nwhich was propagated from:");
         }
       }
-      log.error("a context leak was detected. it was propagated from:{}", sb);
+      logger.error("a context leak was detected. it was propagated from:{}", sb);
     }
   }
 

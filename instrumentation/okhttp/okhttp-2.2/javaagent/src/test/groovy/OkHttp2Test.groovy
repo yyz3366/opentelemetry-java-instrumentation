@@ -10,8 +10,11 @@ import com.squareup.okhttp.Request
 import com.squareup.okhttp.RequestBody
 import com.squareup.okhttp.Response
 import com.squareup.okhttp.internal.http.HttpMethod
+import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.instrumentation.test.AgentTestTrait
 import io.opentelemetry.instrumentation.test.base.HttpClientTest
+import io.opentelemetry.instrumentation.testing.junit.http.AbstractHttpClientTest
+import io.opentelemetry.semconv.trace.attributes.SemanticAttributes
 import java.util.concurrent.TimeUnit
 import spock.lang.Shared
 
@@ -39,7 +42,7 @@ class OkHttp2Test extends HttpClientTest<Request> implements AgentTestTrait {
   }
 
   @Override
-  void sendRequestWithCallback(Request request, String method, URI uri, Map<String, String> headers, RequestResult requestResult) {
+  void sendRequestWithCallback(Request request, String method, URI uri, Map<String, String> headers, AbstractHttpClientTest.RequestResult requestResult) {
     client.newCall(request).enqueue(new Callback() {
       @Override
       void onFailure(Request req, IOException e) {
@@ -51,6 +54,24 @@ class OkHttp2Test extends HttpClientTest<Request> implements AgentTestTrait {
         requestResult.complete(response.code())
       }
     })
+  }
+
+  @Override
+  Set<AttributeKey<?>> httpAttributes(URI uri) {
+    Set<AttributeKey<?>> extra = [
+      SemanticAttributes.HTTP_HOST,
+      SemanticAttributes.HTTP_SCHEME
+    ]
+    def attributes = super.httpAttributes(uri) + extra
+
+    // flavor is extracted from the response, and those URLs cause exceptions (= null response)
+    switch (uri.toString()) {
+      case "http://localhost:61/":
+      case "https://192.0.2.1/":
+        attributes.remove(SemanticAttributes.HTTP_FLAVOR)
+    }
+
+    attributes
   }
 
   @Override

@@ -43,17 +43,17 @@ public class NettyHttpServerTracer
 
   @Override
   protected void attachServerContext(Context context, Channel channel) {
-    channel.attr(AttributeKeys.SERVER_SPAN).set(context);
+    channel.attr(AttributeKeys.SERVER_CONTEXT).set(context);
   }
 
   @Override
   public Context getServerContext(Channel channel) {
-    return channel.attr(AttributeKeys.SERVER_SPAN).get();
+    return channel.attr(AttributeKeys.SERVER_CONTEXT).get();
   }
 
   @Override
   protected String getInstrumentationName() {
-    return "io.opentelemetry.javaagent.netty-4.0";
+    return "io.opentelemetry.netty-4.0";
   }
 
   @Override

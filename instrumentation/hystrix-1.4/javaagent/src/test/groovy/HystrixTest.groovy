@@ -6,7 +6,6 @@
 import static com.netflix.hystrix.HystrixCommandGroupKey.Factory.asKey
 import static io.opentelemetry.api.trace.StatusCode.ERROR
 import static io.opentelemetry.instrumentation.test.utils.TraceUtils.runInternalSpan
-import static io.opentelemetry.instrumentation.test.utils.TraceUtils.runUnderTrace
 
 import com.netflix.hystrix.HystrixCommand
 import io.opentelemetry.instrumentation.test.AgentInstrumentationSpecification
@@ -28,7 +27,7 @@ class HystrixTest extends AgentInstrumentationSpecification {
         return "Hello!"
       }
     }
-    def result = runUnderTrace("parent") {
+    def result = runWithSpan("parent") {
       operation(command)
     }
     expect:
@@ -48,7 +47,7 @@ class HystrixTest extends AgentInstrumentationSpecification {
           attributes {
             "hystrix.command" "HystrixTest\$1"
             "hystrix.group" "ExampleGroup"
-            "hystrix.circuit-open" false
+            "hystrix.circuit_open" false
           }
         }
         span(2) {
@@ -87,7 +86,7 @@ class HystrixTest extends AgentInstrumentationSpecification {
         return "Fallback!"
       }
     }
-    def result = runUnderTrace("parent") {
+    def result = runWithSpan("parent") {
       operation(command)
     }
     expect:
@@ -109,7 +108,7 @@ class HystrixTest extends AgentInstrumentationSpecification {
           attributes {
             "hystrix.command" "HystrixTest\$2"
             "hystrix.group" "ExampleGroup"
-            "hystrix.circuit-open" false
+            "hystrix.circuit_open" false
           }
         }
         span(2) {
@@ -118,7 +117,7 @@ class HystrixTest extends AgentInstrumentationSpecification {
           attributes {
             "hystrix.command" "HystrixTest\$2"
             "hystrix.group" "ExampleGroup"
-            "hystrix.circuit-open" false
+            "hystrix.circuit_open" false
           }
         }
       }

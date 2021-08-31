@@ -5,7 +5,6 @@
 
 import static com.netflix.hystrix.HystrixCommandGroupKey.Factory.asKey
 import static io.opentelemetry.instrumentation.test.utils.TraceUtils.runInternalSpan
-import static io.opentelemetry.instrumentation.test.utils.TraceUtils.runUnderTrace
 
 import com.netflix.hystrix.HystrixObservableCommand
 import io.opentelemetry.instrumentation.test.AgentInstrumentationSpecification
@@ -17,7 +16,7 @@ class HystrixObservableChainTest extends AgentInstrumentationSpecification {
   def "test command #action"() {
     setup:
 
-    def result = runUnderTrace("parent") {
+    def result = runWithSpan("parent") {
       def val = new HystrixObservableCommand<String>(asKey("ExampleGroup")) {
         private String tracedMethod() {
           runInternalSpan("tracedMethod")
@@ -72,7 +71,7 @@ class HystrixObservableChainTest extends AgentInstrumentationSpecification {
           attributes {
             "hystrix.command" "HystrixObservableChainTest\$1"
             "hystrix.group" "ExampleGroup"
-            "hystrix.circuit-open" false
+            "hystrix.circuit_open" false
           }
         }
         span(2) {
@@ -87,7 +86,7 @@ class HystrixObservableChainTest extends AgentInstrumentationSpecification {
           attributes {
             "hystrix.command" "HystrixObservableChainTest\$2"
             "hystrix.group" "OtherGroup"
-            "hystrix.circuit-open" false
+            "hystrix.circuit_open" false
           }
         }
         span(4) {

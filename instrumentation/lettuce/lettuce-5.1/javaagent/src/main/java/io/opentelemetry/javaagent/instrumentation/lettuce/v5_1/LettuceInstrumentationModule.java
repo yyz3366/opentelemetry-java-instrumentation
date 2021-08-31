@@ -5,8 +5,8 @@
 
 package io.opentelemetry.javaagent.instrumentation.lettuce.v5_1;
 
-import static io.opentelemetry.javaagent.extension.matcher.ClassLoaderMatcher.hasClassesNamed;
-import static java.util.Collections.singletonList;
+import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.hasClassesNamed;
+import static java.util.Arrays.asList;
 
 import com.google.auto.service.AutoService;
 import io.opentelemetry.javaagent.extension.instrumentation.InstrumentationModule;
@@ -28,6 +28,7 @@ public class LettuceInstrumentationModule extends InstrumentationModule {
 
   @Override
   public List<TypeInstrumentation> typeInstrumentations() {
-    return singletonList(new DefaultClientResourcesInstrumentation());
+    return asList(
+        new DefaultClientResourcesInstrumentation(), new LettuceAsyncCommandInstrumentation());
   }
 }

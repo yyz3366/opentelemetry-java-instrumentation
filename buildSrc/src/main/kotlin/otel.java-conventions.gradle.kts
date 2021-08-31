@@ -1,6 +1,6 @@
 import io.opentelemetry.instrumentation.gradle.OtelJavaExtension
-import java.time.Duration
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import java.time.Duration
 
 plugins {
   `java-library`
@@ -18,10 +18,11 @@ plugins {
 val otelJava = extensions.create<OtelJavaExtension>("otelJava")
 
 afterEvaluate {
+  val previousBaseArchiveName = base.archivesName.get()
   if (findProperty("mavenGroupId") == "io.opentelemetry.javaagent.instrumentation") {
-    base.archivesName.set("opentelemetry-javaagent-${base.archivesName.get()}")
-  } else {
-    base.archivesName.set("opentelemetry-${base.archivesName.get()}")
+    base.archivesName.set("opentelemetry-javaagent-$previousBaseArchiveName")
+  } else if (!previousBaseArchiveName.startsWith("opentelemetry-")) {
+    base.archivesName.set("opentelemetry-$previousBaseArchiveName")
   }
 }
 
@@ -171,16 +172,30 @@ fun isJavaVersionAllowed(version: JavaVersion): Boolean {
   return true
 }
 
-val testJavaVersion = gradle.startParameter.projectProperties.get("testJavaVersion")?.let(JavaVersion::toVersion)
+class TestcontainersBuildService : BuildService<BuildServiceParameters.None?> {
+  override fun getParameters(): BuildServiceParameters.None? {
+    return null
+  }
+}
+// To limit number of concurrently running resource intensive tests add
+// tasks {
+//   named<Test>("test") {
+//     usesService(gradle.sharedServices.registrations["testcontainersBuildService"].getService())
+//   }
+// }
+gradle.sharedServices.registerIfAbsent("testcontainersBuildService", TestcontainersBuildService::class.java) {
+  maxParallelUsages.convention(2)
+}
+
 val resourceClassesCsv = listOf("Host", "Os", "Process", "ProcessRuntime").map { "io.opentelemetry.sdk.extension.resources.${it}ResourceProvider" }.joinToString(",")
 tasks.withType<Test>().configureEach {
   useJUnitPlatform()
 
   // There's no real harm in setting this for all tests even if any happen to not be using context
   // propagation.
-  jvmArgs("-Dio.opentelemetry.context.enableStrictContext=${rootProject.findProperty("enableStrictContext") ?: false}")
+  jvmArgs("-Dio.opentelemetry.context.enableStrictContext=${rootProject.findProperty("enableStrictContext") ?: true}")
   // TODO(anuraaga): Have agent map unshaded to shaded.
-  jvmArgs("-Dio.opentelemetry.javaagent.shaded.io.opentelemetry.context.enableStrictContext=${rootProject.findProperty("enableStrictContext") ?: false}")
+  jvmArgs("-Dio.opentelemetry.javaagent.shaded.io.opentelemetry.context.enableStrictContext=${rootProject.findProperty("enableStrictContext") ?: true}")
 
   // Disable default resource providers since they cause lots of output we don't need.
   jvmArgs("-Dotel.java.disabled.resource.providers=${resourceClassesCsv}")
@@ -212,12 +227,16 @@ tasks.withType<Test>().configureEach {
 }
 
 afterEvaluate {
+  val testJavaVersion = gradle.startParameter.projectProperties["testJavaVersion"]?.let(JavaVersion::toVersion)
+  val useJ9 = gradle.startParameter.projectProperties["testJavaVM"]?.run { this == "openj9" }
+    ?: false
   tasks.withType<Test>().configureEach {
     if (testJavaVersion != null) {
       javaLauncher.set(javaToolchains.launcherFor {
         languageVersion.set(JavaLanguageVersion.of(testJavaVersion.majorVersion))
+        implementation.set(if (useJ9) JvmImplementation.J9 else JvmImplementation.VENDOR_SPECIFIC)
       })
-      isEnabled = isJavaVersionAllowed(testJavaVersion)
+      isEnabled = isEnabled && isJavaVersionAllowed(testJavaVersion)
     } else {
       // We default to testing with Java 11 for most tests, but some tests don't support it, where we change
       // the default test task's version so commands like `./gradlew check` can test all projects regardless
@@ -242,12 +261,12 @@ afterEvaluate {
 }
 
 codenarc {
-  configFile = rootProject.file("gradle/enforcement/codenarc.groovy")
+  configFile = rootProject.file("buildscripts/codenarc.groovy")
   toolVersion = "2.0.0"
 }
 
 checkstyle {
-  configFile = rootProject.file("gradle/enforcement/checkstyle.xml")
+  configFile = rootProject.file("buildscripts/checkstyle.xml")
   // this version should match the version of google_checks.xml used as basis for above configuration
   toolVersion = "8.37"
   maxWarnings = 0
@@ -257,5 +276,40 @@ idea {
   module {
     setDownloadJavadoc(false)
     setDownloadSources(false)
+  }
+}
+
+when (projectDir.name) {
+  "bootstrap", "javaagent", "library", "testing" -> {
+    // We don't use this group anywhere in our config, but we need to make sure it is unique per
+    // instrumentation so Gradle doesn't merge projects with same name due to a bug in Gradle.
+    // https://github.com/gradle/gradle/issues/847
+    // In otel.publish-conventions, we set the maven group, which is what matters, to the correct
+    // value.
+    group = "io.opentelemetry.${projectDir.parentFile.name}"
+  }
+}
+
+configurations.configureEach {
+  resolutionStrategy {
+    // While you might think preferProjectModules would do this, it doesn't. If this gets hard to
+    // manage, we could consider having the io.opentelemetry.instrumentation add information about
+    // what modules they add to reference generically.
+    dependencySubstitution {
+      substitute(module("io.opentelemetry.instrumentation:opentelemetry-instrumentation-api")).using(project(":instrumentation-api"))
+      substitute(module("io.opentelemetry.instrumentation:opentelemetry-instrumentation-api-annotation-support")).using(project(":instrumentation-api-annotation-support"))
+      substitute(module("io.opentelemetry.javaagent:opentelemetry-javaagent-instrumentation-api")).using(project(":javaagent-instrumentation-api"))
+      substitute(module("io.opentelemetry.javaagent:opentelemetry-javaagent-bootstrap")).using(project(":javaagent-bootstrap"))
+      substitute(module("io.opentelemetry.javaagent:opentelemetry-javaagent-extension-api")).using(project(":javaagent-extension-api"))
+      substitute(module("io.opentelemetry.javaagent:opentelemetry-javaagent-tooling")).using(project(":javaagent-tooling"))
+      substitute(module("io.opentelemetry.javaagent:opentelemetry-agent-for-testing")).using(project(":testing:agent-for-testing"))
+      substitute(module("io.opentelemetry.javaagent:opentelemetry-testing-common")).using(project(":testing-common"))
+      substitute(module("io.opentelemetry.javaagent:opentelemetry-muzzle")).using(project(":muzzle"))
+    }
+
+    // The above substitutions ensure dependencies managed by this BOM for external projects refer to this repo's projects here.
+    // Excluding the bom as well helps ensure if we miss a substitution, we get a resolution failure instead of using the
+    // wrong version.
+    exclude("io.opentelemetry.instrumentation", "opentelemetry-instrumentation-bom-alpha")
   }
 }

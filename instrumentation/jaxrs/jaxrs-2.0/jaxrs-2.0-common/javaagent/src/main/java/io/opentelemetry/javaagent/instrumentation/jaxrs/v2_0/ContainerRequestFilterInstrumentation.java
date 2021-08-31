@@ -5,8 +5,8 @@
 
 package io.opentelemetry.javaagent.instrumentation.jaxrs.v2_0;
 
+import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.hasClassesNamed;
 import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.implementsInterface;
-import static io.opentelemetry.javaagent.extension.matcher.ClassLoaderMatcher.hasClassesNamed;
 import static net.bytebuddy.matcher.ElementMatchers.isMethod;
 import static net.bytebuddy.matcher.ElementMatchers.named;
 import static net.bytebuddy.matcher.ElementMatchers.takesArgument;
@@ -53,7 +53,7 @@ public class ContainerRequestFilterInstrumentation implements TypeInstrumentatio
     public static void setFilterClass(
         @Advice.This ContainerRequestFilter filter,
         @Advice.Argument(0) ContainerRequestContext context) {
-      context.setProperty(JaxRsAnnotationsTracer.ABORT_FILTER_CLASS, filter.getClass());
+      context.setProperty(JaxrsSingletons.ABORT_FILTER_CLASS, filter.getClass());
     }
   }
 }

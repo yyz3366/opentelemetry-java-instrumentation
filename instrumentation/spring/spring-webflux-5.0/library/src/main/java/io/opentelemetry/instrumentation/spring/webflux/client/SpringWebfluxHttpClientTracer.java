@@ -27,8 +27,7 @@ class SpringWebfluxHttpClientTracer
 
   private static final boolean CAPTURE_EXPERIMENTAL_SPAN_ATTRIBUTES =
       Config.get()
-          .getBooleanProperty(
-              "otel.instrumentation.spring-webflux.experimental-span-attributes", false);
+          .getBoolean("otel.instrumentation.spring-webflux.experimental-span-attributes", false);
 
   SpringWebfluxHttpClientTracer(OpenTelemetry openTelemetry) {
     super(openTelemetry, new NetPeerAttributes());
@@ -87,7 +86,7 @@ class SpringWebfluxHttpClientTracer
 
   @Override
   protected String getInstrumentationName() {
-    return "io.opentelemetry.javaagent.spring-webflux-5.0";
+    return "io.opentelemetry.spring-webflux-5.0";
   }
 
   // rawStatusCode() method was introduced in webflux 5.1
